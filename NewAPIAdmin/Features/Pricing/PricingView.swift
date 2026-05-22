@@ -134,13 +134,10 @@ private struct ModelPricingRowView: View {
                 .lineLimit(1)
             HStack(spacing: 12) {
                 if let price = row.modelPrice, price > 0 {
-                    Label("$\(formatPrice(price))/次", systemImage: "dollarsign.circle")
+                    Label("固定 \(formatNumber(price))", systemImage: "dollarsign.circle")
                 } else {
-                    // ModelRatio * $2/1M tokens = actual price
-                    let inputPrice = row.modelRatio * 2
-                    let outputPrice = row.modelRatio * row.completionRatio * 2
-                    Label("输入 $\(formatPrice(inputPrice))/M", systemImage: "arrow.right")
-                    Label("输出 $\(formatPrice(outputPrice))/M", systemImage: "arrow.left")
+                    Label("输入 \(formatNumber(row.modelRatio))", systemImage: "arrow.right")
+                    Label("输出 \(formatNumber(row.completionRatio))", systemImage: "arrow.left")
                 }
             }
             .font(Font.caption)
@@ -149,17 +146,11 @@ private struct ModelPricingRowView: View {
         .padding(.vertical, 2)
     }
 
-    private func formatPrice(_ value: Double) -> String {
-        if value >= 100 {
-            return String(format: "%.0f", value)
-        } else if value >= 1 {
-            return String(format: "%.2f", value)
-        } else if value >= 0.01 {
-            return String(format: "%.3f", value)
-        } else if value > 0 {
-            return String(format: "%.4f", value)
+    private func formatNumber(_ value: Double) -> String {
+        if value == value.rounded() && value < 10000 {
+            return String(Int(value))
         }
-        return "0"
+        return String(format: "%.4g", value)
     }
 }
 
@@ -180,21 +171,22 @@ private struct ModelPricingEditView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("基本定价"), footer: Text("模型倍率 × $2 = 每百万 Token 价格。例如倍率 15 表示 $30/M tokens。")) {
+            Section("基本定价") {
                 LabeledContent("模型倍率（输入）") {
                     TextField("默认 1", text: $modelRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
                 }
-                LabeledContent("补全倍率（输出/输入）") {
-                    TextField("默认 1（与输入相同）", text: $completionRatio)
+                LabeledContent("补全倍率（输出）") {
+                    TextField("默认 1", text: $completionRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
                 }
-                LabeledContent("固定价格（$/次）") {
+                LabeledContent("固定价格") {
                     TextField("不设置则用倍率计费", text: $modelPrice)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                }
                 }
                 }
             }
