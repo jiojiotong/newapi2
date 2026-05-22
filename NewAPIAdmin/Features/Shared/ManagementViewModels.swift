@@ -250,6 +250,11 @@ final class UsersViewModel: ObservableObject {
         await load()
     }
 
+    func manageQuota(_ item: ManagedUser, value: Int, mode: String) async {
+        await perform { try await service.manageQuota(id: item.id, value: value, mode: mode) }
+        await load()
+    }
+
     func update(_ payload: DynamicObject) async {
         await perform { _ = try await service.update(payload) }
         await load()
@@ -437,7 +442,12 @@ final class PricingViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             options = try await service.fetchOptions()
-            let channelMap = (try? await service.fetchModelChannelMap()) ?? [:]
+            var channelMap: [String: [String]] = [:]
+            do {
+                channelMap = try await service.fetchModelChannelMap()
+            } catch {
+                // Channel map fetch failed, continue without it
+            }
             buildRows(channelMap: channelMap)
         } catch {
             errorMessage = error.localizedDescription

@@ -142,10 +142,10 @@ private struct ModelPricingRowView: View {
                 .lineLimit(1)
             HStack(spacing: 12) {
                 if let price = row.modelPrice, price > 0 {
-                    Label("固定 \(formatNumber(price))", systemImage: "dollarsign.circle")
+                    Label("固定 $\(formatNumber(price))/次", systemImage: "dollarsign.circle")
                 } else {
-                    Label("输入 \(formatNumber(inputDisplay))", systemImage: "arrow.right")
-                    Label("输出 \(formatNumber(outputDisplay))", systemImage: "arrow.left")
+                    Label("输入 $\(formatNumber(inputDisplay))/M", systemImage: "arrow.right")
+                    Label("输出 $\(formatNumber(outputDisplay))/M", systemImage: "arrow.left")
                 }
             }
             .font(Font.caption)
@@ -161,10 +161,14 @@ private struct ModelPricingRowView: View {
     }
 
     private func formatNumber(_ value: Double) -> String {
-        if value == value.rounded() && value < 10000 {
+        if value == value.rounded() && value < 100000 {
             return String(Int(value))
         }
-        return String(format: "%.4g", value)
+        let formatted = String(format: "%.6f", value)
+        var result = formatted
+        while result.hasSuffix("0") { result.removeLast() }
+        if result.hasSuffix(".") { result.removeLast() }
+        return result
     }
 }
 

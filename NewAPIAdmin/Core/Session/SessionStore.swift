@@ -8,6 +8,8 @@ public final class SessionStore: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var lastServerURL = ""
+    @Published var turnstileRequired = false
+    @Published var turnstileSiteKey = ""
 
     private let storage = ProfileStorage()
     private let credentialStorage = CredentialStorage()
@@ -18,7 +20,7 @@ public final class SessionStore: ObservableObject {
     }
 
     var isAuthenticated: Bool {
-        profile != nil && adminUser?.isAdmin == true
+        profile != nil && adminUser != nil
     }
 
     func restoreSessionIfPossible() async {
@@ -34,10 +36,6 @@ public final class SessionStore: ObservableObject {
 
         do {
             let user: AdminUser = try await restoredClient.get("/api/user/self")
-            guard user.isAdmin else {
-                clearLocalSession()
-                return
-            }
             adminUser = user
             storage.save(profile: saved.0, user: user)
         } catch {
@@ -45,7 +43,21 @@ public final class SessionStore: ObservableObject {
         }
     }
 
-    func login(serverURL: String, username: String, password: String, rememberPassword: Bool = false) async {
+    func checkServerStatus(serverURL: String) async {
+        errorMessage = nil
+        do {
+            let normalizedURL = try normalizeServerURL(serverURL)
+            let apiClient = NewAPIClient(baseURL: normalizedURL)
+            let status: ServerStatus = try await apiClient.get("/api/status")
+            turnstileRequired = status.turnstileCheck == true
+            turnstileSiteKey = status.turnstileSiteKey ?? ""
+        } catch {
+            turnstileRequired = false
+            turnstileSiteKey = ""
+        }
+    }
+
+    func login(serverURL: String, username: String, password: String, rememberPassword: Bool = false, turnstileToken: String? = nil) async {
         errorMessage = nil
         isLoading = true
         defer { isLoading = false }
@@ -54,7 +66,15 @@ public final class SessionStore: ObservableObject {
             let normalizedURL = try normalizeServerURL(serverURL)
             let apiClient = NewAPIClient(baseURL: normalizedURL)
             let _: AnyJSONValue = try await apiClient.get("/api/status")
-            let loginResponse: LoginResponse = try await apiClient.post("/api/user/login", body: LoginRequest(username: username, password: password))
+
+            // If turnstile is required, append token to login request URL
+            let loginPath: String
+            if let token = turnstileToken, !token.isEmpty {
+                loginPath = "/api/user/login?turnstile=\(token)"
+            } else {
+                loginPath = "/api/user/login"
+            }
+            let loginResponse: LoginResponse = try await apiClient.post(loginPath, body: LoginRequest(username: username, password: password))
 
             if loginResponse.requiresTwoFactor {
                 throw NewAPIError.twoFactorUnsupported
@@ -70,16 +90,6 @@ public final class SessionStore: ObservableObject {
 
             // Set user ID for New-Api-User header on all subsequent requests
             apiClient.setUserId(user.id)
-
-            guard user.isAdmin else {
-                do {
-                    let _: EmptyResponseData = try await apiClient.get("/api/user/logout")
-                } catch {
-                    // Ignore logout failures while rejecting non-admin users.
-                }
-                storage.clear()
-                throw NewAPIError.administratorRequired
-            }
 
             let serverProfile = ServerProfile(
                 name: normalizedURL.host ?? normalizedURL.absoluteString,
@@ -134,14 +144,11 @@ public final class SessionStore: ObservableObject {
 
         do {
             let user: AdminUser = try await client.get("/api/user/self")
-            guard user.isAdmin else {
-                clearLocalSession()
-                throw NewAPIError.administratorRequired
-            }
             adminUser = user
             if let profile {
                 storage.save(profile: profile, user: user)
             }
+            errorMessage = nil
         } catch let error as NewAPIError {
             errorMessage = error.localizedDescription
         } catch {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct UserFormView: View {
     @ObservedObject var viewModel: UsersViewModel
+    @EnvironmentObject private var sessionStore: SessionStore
     @Environment(\.dismiss) private var dismiss
 
     let editingUser: ManagedUser?
@@ -11,23 +12,26 @@ struct UserFormView: View {
     @State private var displayName = ""
     @State private var group = "default"
     @State private var remark = ""
+    @State private var role = 1
+    @State private var status = 1
+    @State private var quotaAction = "add"
+    @State private var quotaAmount = ""
     @State private var isSaving = false
     @State private var availableGroups: [String] = []
+    @State private var successMessage: String?
 
     var body: some View {
         Form {
             if let error = viewModel.errorMessage {
                 Section { Text(error).foregroundColor(Color.red) }
             }
+            if let success = successMessage {
+                Section { Text(success).foregroundColor(Color.green) }
+            }
 
             Section("基本信息") {
-                if editingUser == nil {
-                    TextField("用户名", text: $username)
-                        .adminPlainTextInput()
-                } else {
-                    TextField("用户名", text: $username)
-                        .adminPlainTextInput()
-                }
+                TextField("用户名", text: $username)
+                    .adminPlainTextInput()
                 if editingUser == nil {
                     SecureField("密码（8-20位）", text: $password)
                 } else {
@@ -50,21 +54,52 @@ struct UserFormView: View {
                 }
             }
 
+            if editingUser != nil {
+                Section("角色") {
+                    Picker("角色", selection: $role) {
+                        Text("普通用户").tag(1)
+                        Text("管理员").tag(10)
+                        if sessionStore.adminUser?.isRoot == true {
+                            Text("Root").tag(100)
+                        }
+                    }
+                    if sessionStore.adminUser?.isRoot != true {
+                        Text("仅 Root 可以提升用户为管理员")
+                            .font(Font.caption)
+                            .foregroundColor(Color.secondary)
+                    }
+                }
+
+                Section("状态") {
+                    Picker("状态", selection: $status) {
+                        Text("启用").tag(1)
+                        Text("禁用").tag(2)
+                    }
+                }
+
+                Section(header: Text("额度管理"), footer: Text("当前额度：\(formatQuota(editingUser?.quota))")) {
+                    Picker("操作", selection: $quotaAction) {
+                        Text("增加").tag("add")
+                        Text("减少").tag("subtract")
+                        Text("设置为").tag("override")
+                    }
+                    TextField("额度数值（整数）", text: $quotaAmount)
+                        .adminNumberKeyboard()
+                        .adminEditableField()
+                    Button("修改额度") {
+                        Task { await updateQuota() }
+                    }
+                    .disabled(quotaAmount.isEmpty || isSaving)
+                }
+            }
+
             Section("备注") {
                 TextField("备注（可选）", text: $remark)
                     .adminPlainTextInput()
             }
 
-            if let user = editingUser {
-                Section("信息") {
-                    LabeledContent("角色", value: roleName(user.role))
-                    LabeledContent("状态", value: statusName(user.status))
-                    LabeledContent("额度", value: user.quota.map { String(Int($0)) } ?? "-")
-                }
-            }
-
             Section {
-                Button(editingUser == nil ? "创建用户" : "保存修改") {
+                Button(editingUser == nil ? "创建用户" : "保存基本信息") {
                     Task { await save() }
                 }
                 .disabled(isSaving || username.isEmpty || (editingUser == nil && password.isEmpty))
@@ -82,12 +117,16 @@ struct UserFormView: View {
         username = user.username
         displayName = user.displayName ?? ""
         group = user.group ?? "default"
+        role = user.role ?? 1
+        status = user.status ?? 1
         if case .string(let v) = user.raw["remark"] { remark = v }
     }
 
     private func save() async {
         isSaving = true
         defer { isSaving = false }
+        successMessage = nil
+        viewModel.errorMessage = nil
 
         var values: [String: AnyJSONValue] = [
             "username": .string(username),
@@ -103,33 +142,58 @@ struct UserFormView: View {
         if let user = editingUser {
             values["id"] = .int(user.id)
             await viewModel.update(DynamicObject(values: values))
+            if viewModel.errorMessage != nil { return }
+
+            // Handle role change via manage endpoint
+            if role != (user.role ?? 1) {
+                if role >= 10 && (user.role ?? 1) < 10 {
+                    await viewModel.manage(user, action: "promote")
+                } else if role < 10 && (user.role ?? 1) >= 10 {
+                    await viewModel.manage(user, action: "demote")
+                }
+                if viewModel.errorMessage != nil { return }
+            }
+
+            // Handle status change via manage endpoint
+            if status != (user.status ?? 1) {
+                if status == 1 {
+                    await viewModel.manage(user, action: "enable")
+                } else {
+                    await viewModel.manage(user, action: "disable")
+                }
+                if viewModel.errorMessage != nil { return }
+            }
+
+            successMessage = "保存成功"
         } else {
-            // Create requires password and role
             values["password"] = .string(password)
-            values["role"] = .int(1) // default common user
+            values["role"] = .int(role)
             await viewModel.create(DynamicObject(values: values))
+            if viewModel.errorMessage == nil {
+                dismiss()
+            }
         }
+    }
 
+    private func updateQuota() async {
+        guard let user = editingUser, let amount = Int(quotaAmount), amount > 0 else {
+            viewModel.errorMessage = "额度数值必须为正整数"
+            return
+        }
+        isSaving = true
+        defer { isSaving = false }
+        successMessage = nil
+
+        await viewModel.manageQuota(user, value: amount, mode: quotaAction)
         if viewModel.errorMessage == nil {
-            dismiss()
+            successMessage = "额度修改成功"
+            quotaAmount = ""
         }
     }
 
-    private func roleName(_ role: Int?) -> String {
-        switch role {
-        case 100: return "Root"
-        case 10: return "管理员"
-        case 1: return "普通用户"
-        case 0: return "访客"
-        default: return role.map { String($0) } ?? "-"
-        }
-    }
-
-    private func statusName(_ status: Int?) -> String {
-        switch status {
-        case 1: return "启用"
-        case 2: return "禁用"
-        default: return status.map { String($0) } ?? "-"
-        }
+    private func formatQuota(_ quota: Double?) -> String {
+        guard let q = quota else { return "$0.00" }
+        let dollars = q / 500000.0
+        return String(format: "$%.2f", dollars)
     }
 }

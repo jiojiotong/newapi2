@@ -12,6 +12,14 @@ struct AdminUser: Codable, Equatable, Identifiable {
         role >= 10
     }
 
+    var isRoot: Bool {
+        role >= 100
+    }
+
+    var isNormalUser: Bool {
+        role < 10
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case username

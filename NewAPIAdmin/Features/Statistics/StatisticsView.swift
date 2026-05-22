@@ -50,10 +50,33 @@ private struct StatisticsContentView: View {
                 StatCard(title: "TPM（每分钟 Token）", value: viewModel.tpmText, icon: "bolt")
             }
 
-            Section("资源") {
-                StatCard(title: "用户数量", value: viewModel.userCountText, icon: "person.2")
-                StatCard(title: "渠道数量", value: viewModel.channelCountText, icon: "antenna.radiowaves.left.and.right")
-                StatCard(title: "模型数量", value: viewModel.modelCountText, icon: "cpu")
+            if !viewModel.modelPricingList.isEmpty {
+                Section("模型定价") {
+                    ForEach(viewModel.modelPricingList) { item in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.modelName)
+                                .font(Font.subheadline)
+                                .lineLimit(1)
+                            HStack(spacing: 12) {
+                                if item.isFixedPrice {
+                                    Text("固定 $\(formatPrice(item.inputPrice))/次")
+                                } else {
+                                    Text("输入 $\(formatPrice(item.inputPrice))/M")
+                                    Text("输出 $\(formatPrice(item.outputPrice))/M")
+                                }
+                            }
+                            .font(Font.caption)
+                            .foregroundColor(Color.secondary)
+                            if !item.channelNames.isEmpty {
+                                Text(item.channelNames.joined(separator: ", "))
+                                    .font(Font.caption2)
+                                    .foregroundColor(Color.accentColor)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
             }
 
             if !viewModel.topModels.isEmpty {
@@ -76,33 +99,10 @@ private struct StatisticsContentView: View {
                 }
             }
 
-            if !viewModel.modelPricingList.isEmpty {
-                Section("模型定价一览") {
-                    ForEach(viewModel.modelPricingList) { item in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.modelName)
-                                .font(Font.subheadline)
-                                .lineLimit(1)
-                            HStack(spacing: 12) {
-                                if item.isFixedPrice {
-                                    Text("固定 \(formatPrice(item.inputPrice))/次")
-                                } else {
-                                    Text("输入 \(formatPrice(item.inputPrice))")
-                                    Text("输出 \(formatPrice(item.outputPrice))")
-                                }
-                            }
-                            .font(Font.caption)
-                            .foregroundColor(Color.secondary)
-                            if !item.channelNames.isEmpty {
-                                Text(item.channelNames.joined(separator: ", "))
-                                    .font(Font.caption2)
-                                    .foregroundColor(Color.accentColor)
-                                    .lineLimit(1)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
+            Section("资源") {
+                StatCard(title: "用户数量", value: viewModel.userCountText, icon: "person.2")
+                StatCard(title: "渠道数量", value: viewModel.channelCountText, icon: "antenna.radiowaves.left.and.right")
+                StatCard(title: "模型数量", value: viewModel.modelCountText, icon: "cpu")
             }
         }
         .overlay {
@@ -114,10 +114,15 @@ private struct StatisticsContentView: View {
     }
 
     private func formatPrice(_ value: Double) -> String {
-        if value == value.rounded() && value < 10000 {
+        if value == value.rounded() && value < 100000 {
             return String(Int(value))
         }
-        return String(format: "%.4g", value)
+        // Remove trailing zeros
+        let formatted = String(format: "%.6f", value)
+        var result = formatted
+        while result.hasSuffix("0") { result.removeLast() }
+        if result.hasSuffix(".") { result.removeLast() }
+        return result
     }
 
     private func formatNumber(_ value: Int) -> String {
@@ -219,43 +224,28 @@ final class StatisticsViewModel: ObservableObject {
 
     private func loadModelPricing() async {
         do {
-            let options = try await service.fetchPricingOptions()
             let channelMap = (try? await service.fetchModelChannelMap()) ?? [:]
+            // Use /api/pricing (public endpoint, works for all roles)
+            let pricing: [PricingItem] = try await service.fetchPricing()
 
-            let modelRatioMap = parseJSONMap(options["ModelRatio"])
-            let completionRatioMap = parseJSONMap(options["CompletionRatio"])
-            let modelPriceMap = parseJSONMap(options["ModelPrice"])
+            modelCountText = String(pricing.count)
 
-            var allModels = Set<String>()
-            allModels.formUnion(modelRatioMap.keys)
-            allModels.formUnion(modelPriceMap.keys)
-
-            modelCountText = String(allModels.count)
-
-            modelPricingList = allModels.sorted().map { name in
-                let mr = modelRatioMap[name] ?? 1
-                let cr = completionRatioMap[name] ?? 1
-                let mp = modelPriceMap[name]
-                let channels = channelMap[name] ?? []
-                if let fixedPrice = mp, fixedPrice > 0 {
-                    return ModelPricingInfo(modelName: name, inputPrice: fixedPrice, outputPrice: fixedPrice, isFixedPrice: true, channelNames: channels)
-                }
-                return ModelPricingInfo(modelName: name, inputPrice: mr * 2, outputPrice: mr * 2 * cr, isFixedPrice: false, channelNames: channels)
+            modelPricingList = pricing.map { item in
+                let inputPrice = item.modelRatio * 2
+                let outputPrice = item.modelRatio * 2 * item.completionRatio
+                let isFixed = item.quotaType == 1
+                let channels = channelMap[item.modelName] ?? []
+                return ModelPricingInfo(
+                    modelName: item.modelName,
+                    inputPrice: isFixed ? item.modelPrice : inputPrice,
+                    outputPrice: isFixed ? item.modelPrice : outputPrice,
+                    isFixedPrice: isFixed,
+                    channelNames: channels
+                )
             }
         } catch {
             modelCountText = "加载失败"
         }
-    }
-
-    private func parseJSONMap(_ jsonString: String?) -> [String: Double] {
-        guard let str = jsonString, let data = str.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
-        var result: [String: Double] = [:]
-        for (key, value) in obj {
-            if let num = value as? Double { result[key] = num }
-            else if let num = value as? Int { result[key] = Double(num) }
-        }
-        return result
     }
 
     private func loadQuotaData() async {
@@ -289,16 +279,8 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private func formatQuota(_ quota: Int) -> String {
-        // NewAPI: 1 unit = $0.002/1K tokens, so $1 = 500000 quota units
         let dollars = Double(quota) / 500000.0
-        if dollars >= 1000 {
-            return String(format: "$%.0f", dollars)
-        } else if dollars >= 1 {
-            return String(format: "$%.2f", dollars)
-        } else if dollars > 0 {
-            return String(format: "$%.4f", dollars)
-        }
-        return "$0"
+        return String(format: "$%.2f", dollars)
     }
 
     private func formatLargeNumber(_ value: Int) -> String {

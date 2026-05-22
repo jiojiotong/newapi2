@@ -10,9 +10,10 @@ struct Channel: Codable, Identifiable, Equatable {
     var responseTime: Double?
     var priority: Int?
     var weight: Int?
+    var models: String?
     var raw: DynamicObject
 
-    init(id: Int, name: String, type: Int? = nil, group: String? = nil, status: Int? = nil, balance: Double? = nil, responseTime: Double? = nil, priority: Int? = nil, weight: Int? = nil, raw: DynamicObject = DynamicObject()) {
+    init(id: Int, name: String, type: Int? = nil, group: String? = nil, status: Int? = nil, balance: Double? = nil, responseTime: Double? = nil, priority: Int? = nil, weight: Int? = nil, models: String? = nil, raw: DynamicObject = DynamicObject()) {
         self.id = id
         self.name = name
         self.type = type
@@ -22,6 +23,7 @@ struct Channel: Codable, Identifiable, Equatable {
         self.responseTime = responseTime
         self.priority = priority
         self.weight = weight
+        self.models = models
         self.raw = raw
     }
 
@@ -37,6 +39,7 @@ struct Channel: Codable, Identifiable, Equatable {
         responseTime = container.decodeDoubleIfPresent("response_time", "responseTime")
         priority = container.decodeIntIfPresent("priority")
         weight = container.decodeIntIfPresent("weight")
+        models = container.decodeStringIfPresent("models")
         self.raw = raw
     }
 }

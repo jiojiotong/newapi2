@@ -65,7 +65,12 @@ final class StatisticsService {
         return try await client.get("/api/data/", queryItems: queryItems)
     }
 
-    /// Get model pricing options
+    /// Get model pricing from public endpoint (works for all roles)
+    func fetchPricing() async throws -> [PricingItem] {
+        try await client.get("/api/pricing")
+    }
+
+    /// Get model pricing options (requires Root)
     func fetchPricingOptions() async throws -> [String: String] {
         let options: [OptionItem] = try await client.get("/api/option/")
         return OptionParser.dictionary(from: options)
@@ -73,17 +78,25 @@ final class StatisticsService {
 
     /// Get model count and channel map
     func fetchModelChannelMap() async throws -> [String: [String]] {
-        let response: PaginatedResponse<ModelMeta> = try await client.get("/api/models/", queryItems: [
-            URLQueryItem(name: "p", value: "1"),
-            URLQueryItem(name: "page_size", value: "1000")
-        ])
         var result: [String: [String]] = [:]
-        for model in response.items {
-            let channelNames = model.boundChannels.map { $0.name }
-            if !channelNames.isEmpty {
-                result[model.modelName] = channelNames
+
+        // Build from channel list - each channel has a "models" field with comma-separated model names
+        let channels: PaginatedResponse<Channel> = try await client.get("/api/channel/", queryItems: [
+            URLQueryItem(name: "p", value: "1"),
+            URLQueryItem(name: "page_size", value: "500")
+        ])
+        for channel in channels.items {
+            guard let modelsStr = channel.models, !modelsStr.isEmpty else { continue }
+            let models = modelsStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            for model in models {
+                if result[model] == nil {
+                    result[model] = [channel.name]
+                } else if !result[model]!.contains(channel.name) {
+                    result[model]!.append(channel.name)
+                }
             }
         }
+
         return result
     }
 }

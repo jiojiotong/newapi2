@@ -46,7 +46,7 @@ private struct UsersContentView: View {
                         Text(item.username).font(Font.headline)
                         Text("\(item.displayName ?? "-") · \(item.group ?? "default")")
                             .font(Font.caption).foregroundColor(Color.secondary)
-                        Text("额度 \(item.quota.map { String(Int($0)) } ?? "0") · \(item.status == 1 ? "启用" : "禁用") · \(roleName(item.role))")
+                        Text("额度 \(formatQuota(item.quota)) · \(item.status == 1 ? "启用" : "禁用") · \(roleName(item.role))")
                             .font(Font.caption).foregroundColor(Color.secondary)
                     }
                 }
@@ -104,6 +104,12 @@ private struct UsersContentView: View {
         case 0: return "访客"
         default: return "未知"
         }
+    }
+
+    private func formatQuota(_ quota: Double?) -> String {
+        guard let q = quota else { return "$0.00" }
+        let dollars = q / 500000.0
+        return String(format: "$%.2f", dollars)
     }
 }
 

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ChannelFormView: View {
     @ObservedObject var viewModel: ChannelsViewModel
+    @EnvironmentObject private var sessionStore: SessionStore
     @Environment(\.dismiss) private var dismiss
 
     let editingChannel: Channel?
@@ -141,7 +142,7 @@ struct ChannelFormView: View {
                     .adminPlainTextInput()
             }
 
-            if editingChannel != nil {
+            if editingChannel != nil && sessionStore.adminUser?.isRoot == true {
                 Section(header: Text("模型定价（全局）"), footer: Text("定价为全局设置，修改会影响所有使用同名模型的渠道")) {
                     if channelModelPricing.isEmpty {
                         Text("暂无定价信息")
@@ -187,7 +188,7 @@ struct ChannelFormView: View {
         .task {
             availableGroups = await viewModel.fetchGroups()
             loadFromChannel()
-            if editingChannel != nil {
+            if editingChannel != nil && sessionStore.adminUser?.isRoot == true {
                 await loadChannelPricing()
             }
         }
@@ -331,10 +332,14 @@ struct ChannelFormView: View {
     }
 
     private func formatPriceValue(_ value: Double) -> String {
-        if value == value.rounded() && value < 10000 {
+        if value == value.rounded() && value < 100000 {
             return String(Int(value))
         }
-        return String(format: "%.4g", value)
+        let formatted = String(format: "%.6f", value)
+        var result = formatted
+        while result.hasSuffix("0") { result.removeLast() }
+        if result.hasSuffix(".") { result.removeLast() }
+        return result
     }
 
     private func parsePricingJSON(_ jsonString: String?) -> [String: Double] {
