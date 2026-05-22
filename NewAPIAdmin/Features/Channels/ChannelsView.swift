@@ -48,10 +48,10 @@ private struct ChannelsContentView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(item.name).font(Font.headline)
-                        Text("类型 \(item.type.map { String($0) } ?? "-") · 分组 \(item.group ?? "-") · 状态 \(item.status.map { String($0) } ?? "-")")
+                        Text("\(item.type.map { ChannelType.name(for: $0) } ?? "-") · \(item.group ?? "-") · \(item.status == 1 ? "启用" : "禁用")")
                             .font(Font.caption)
                             .foregroundColor(Color.secondary)
-                        Text("余额 \(item.balance.map { String($0) } ?? "-") · 响应 \(item.responseTime.map { String($0) } ?? "-") · 优先级 \(item.priority.map { String($0) } ?? "-") · 权重 \(item.weight.map { String($0) } ?? "-")")
+                        Text("优先级 \(item.priority.map { String($0) } ?? "0") · 权重 \(item.weight.map { String($0) } ?? "1")")
                             .font(Font.caption)
                             .foregroundColor(Color.secondary)
                     }
@@ -93,10 +93,7 @@ private struct ChannelsContentView: View {
                 .disabled(viewModel.isLoading)
         }
         .navigationDestination(isPresented: $showingCreate) {
-            DynamicObjectFormView(title: "新增渠道", initialValues: ["name": .string("")]) { payload in
-                await viewModel.create(payload)
-                return viewModel.errorMessage == nil
-            }
+            ChannelFormView(viewModel: viewModel, editingChannel: nil)
         }
     }
 }
@@ -128,10 +125,7 @@ private struct ChannelDetailView: View {
             Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
         }
         .navigationDestination(isPresented: $showingEdit) {
-            DynamicObjectFormView(title: "编辑渠道", initialValues: displayed.raw.values) { payload in
-                await viewModel.update(payload)
-                return viewModel.errorMessage == nil
-            }
+            ChannelFormView(viewModel: viewModel, editingChannel: displayed)
         }
     }
 
@@ -145,15 +139,18 @@ private struct ChannelDetailView: View {
     private var basicInfoSection: some View {
         Section("基本信息") {
             LabeledContent("名称", value: title)
+            LabeledContent("类型", value: displayed.type.map { ChannelType.name(for: $0) } ?? "-")
             LabeledContent("分组", value: groupText)
-            LabeledContent("状态", value: statusText)
+            LabeledContent("状态", value: displayed.status == 1 ? "启用" : "禁用")
             LabeledContent("余额", value: balanceText)
+            LabeledContent("优先级", value: displayed.priority.map { String($0) } ?? "0")
+            LabeledContent("权重", value: displayed.weight.map { String($0) } ?? "1")
         }
     }
 
     private var actionSection: some View {
         Section("操作") {
-            Button("编辑 JSON") { showingEdit = true }
+            Button("编辑渠道") { showingEdit = true }
             Button("测试渠道") { Task { await viewModel.test(item) } }
             Button("更新余额") { Task { await viewModel.updateBalance(item) } }
             Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
