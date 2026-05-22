@@ -9,7 +9,8 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .library(name: "NewAPIAdmin", targets: ["NewAPIAdmin"])
+        .library(name: "NewAPIAdmin", targets: ["NewAPIAdmin"]),
+        .executable(name: "NewAPIAdminApp", targets: ["NewAPIAdminApp"])
     ],
     targets: [
         .target(
@@ -18,6 +19,11 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("Security")
             ]
+        ),
+        .executableTarget(
+            name: "NewAPIAdminApp",
+            dependencies: ["NewAPIAdmin"],
+            path: "NewAPIAdminApp"
         ),
         .testTarget(
             name: "NewAPIAdminTests",

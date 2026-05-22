@@ -1,9 +1,11 @@
 import SwiftUI
 
-struct RootView: View {
+public struct RootView: View {
     @EnvironmentObject private var sessionStore: SessionStore
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         Group {
             if sessionStore.isAuthenticated {
                 MainTabView()

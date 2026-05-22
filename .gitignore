@@ -1,0 +1,8 @@
+.build/
+DerivedData/
+build/
+*.xcodeproj/
+*.xcworkspace/
+*.xcarchive/
+*.ipa
+*.app

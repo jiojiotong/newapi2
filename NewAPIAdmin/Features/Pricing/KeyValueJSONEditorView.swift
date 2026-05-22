@@ -11,20 +11,22 @@ struct KeyValueJSONEditorView: View {
                 Text(errorMessage).foregroundStyle(.red)
             }
 
-            ForEach($rows) { $row in
-                HStack {
-                    TextField("Key", text: $row.key)
-                    TextField("Value", text: $row.value)
-                        .adminDecimalKeyboard()
-                        .multilineTextAlignment(.trailing)
+            if errorMessage == nil {
+                ForEach($rows) { $row in
+                    HStack {
+                        TextField("Key", text: $row.key)
+                        TextField("Value", text: $row.value)
+                            .adminDecimalKeyboard()
+                            .multilineTextAlignment(.trailing)
+                    }
                 }
-            }
-            .onDelete { rows.remove(atOffsets: $0); syncJSON() }
-            .onChange(of: rows) { _ in syncJSON() }
+                .onDelete { rows.remove(atOffsets: $0); syncJSON() }
+                .onChange(of: rows) { _ in syncJSON() }
 
-            Button("添加一行") {
-                rows.append(KeyValueRow(key: "", value: "1"))
-                syncJSON()
+                Button("添加一行") {
+                    rows.append(KeyValueRow(key: "", value: "1"))
+                    syncJSON()
+                }
             }
         }
         .onAppear { loadRows() }
@@ -33,9 +35,15 @@ struct KeyValueJSONEditorView: View {
 
     private func loadRows() {
         guard let data = jsonText.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             rows = []
             errorMessage = "当前 JSON 不是对象，无法可视化编辑。"
+            return
+        }
+
+        guard Self.isVisualEditableObject(object) else {
+            rows = []
+            errorMessage = "当前 JSON 包含数组或嵌套对象，请使用原始 JSON 编辑以避免结构被改写。"
             return
         }
 
@@ -64,6 +72,12 @@ struct KeyValueJSONEditorView: View {
         }
         jsonText = text
         errorMessage = nil
+    }
+
+    static func isVisualEditableObject(_ object: [String: Any]) -> Bool {
+        object.values.allSatisfy { value in
+            value is String || value is NSNumber || value is NSNull
+        }
     }
 }
 

@@ -19,12 +19,12 @@ final class UserService {
         try await client.get("/api/user/\(id)")
     }
 
-    func create(_ payload: DynamicObject) async throws -> ManagedUser {
-        try await client.post("/api/user/", body: payload)
+    func create(_ payload: DynamicObject) async throws {
+        let _: EmptyResponseData = try await client.post("/api/user/", body: payload)
     }
 
-    func update(_ payload: DynamicObject) async throws -> ManagedUser {
-        try await client.put("/api/user/", body: payload)
+    func update(_ payload: DynamicObject) async throws {
+        let _: EmptyResponseData = try await client.put("/api/user/", body: payload)
     }
 
     func manage(id: Int, action: String) async throws {

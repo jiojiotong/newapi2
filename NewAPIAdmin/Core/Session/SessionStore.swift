@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 @MainActor
-final class SessionStore: ObservableObject {
+public final class SessionStore: ObservableObject {
     @Published private(set) var profile: ServerProfile?
     @Published private(set) var adminUser: AdminUser?
     @Published var isLoading = false
@@ -13,7 +13,7 @@ final class SessionStore: ObservableObject {
     private let credentialStorage = CredentialStorage()
     private var client: NewAPIClient?
 
-    init() {
+    public init() {
         lastServerURL = storage.lastServerURL()
     }
 

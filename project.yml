@@ -1,0 +1,27 @@
+name: NewAPIAdmin
+options:
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.8"
+    DEVELOPMENT_TEAM: ""
+targets:
+  NewAPIAdmin:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: NewAPIAdmin
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.local.newapiadmin
+        PRODUCT_NAME: NewAPIAdmin
+        INFOPLIST_FILE: NewAPIAdmin/Supporting/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""
+    scheme:
+      testTargets: []

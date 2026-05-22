@@ -19,12 +19,12 @@ final class ChannelService {
         try await client.get("/api/channel/\(id)")
     }
 
-    func create(_ payload: DynamicObject) async throws -> Channel {
-        try await client.post("/api/channel/", body: payload)
+    func create(_ payload: DynamicObject) async throws {
+        let _: EmptyResponseData = try await client.post("/api/channel/", body: payload)
     }
 
-    func update(_ payload: DynamicObject) async throws -> Channel {
-        try await client.put("/api/channel/", body: payload)
+    func update(_ payload: DynamicObject) async throws {
+        let _: EmptyResponseData = try await client.put("/api/channel/", body: payload)
     }
 
     func delete(id: Int) async throws {

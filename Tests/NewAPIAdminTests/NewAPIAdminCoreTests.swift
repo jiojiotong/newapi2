@@ -45,4 +45,57 @@ final class NewAPIAdminCoreTests: XCTestCase {
         let encoded = try JSONEncoder().encode(value)
         XCTAssertFalse(encoded.isEmpty)
     }
+
+    func testMutationAcceptsSuccessWithNullData() async throws {
+        MockURLProtocol.handler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/channel/")
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let data = Data("{\"success\":true,\"message\":\"ok\",\"data\":null}".utf8)
+            return (response, data)
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = NewAPIClient(baseURL: URL(string: "https://example.com")!, session: URLSession(configuration: configuration))
+        let service = ChannelService(client: client)
+
+        try await service.create(DynamicObject(values: ["name": .string("test")]))
+    }
+
+    func testVisualPricingEditorRejectsNestedJSONObjects() {
+        XCTAssertTrue(KeyValueJSONEditorView.isVisualEditableObject(["model": 1, "group": "default"]))
+        XCTAssertFalse(KeyValueJSONEditorView.isVisualEditableObject(["model": ["nested": 1]]))
+        XCTAssertFalse(KeyValueJSONEditorView.isVisualEditableObject(["models": ["gpt-4", "gpt-4o"]]))
+    }
+}
+
+private final class MockURLProtocol: URLProtocol {
+    static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: NewAPIError.invalidResponse)
+            return
+        }
+
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }

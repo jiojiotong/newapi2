@@ -24,6 +24,19 @@ struct RedemptionsView: View {
                             }
                         }
                     }
+                    Section {
+                        LabeledContent("当前页", value: String(viewModel.currentPage))
+                        if let total = viewModel.total {
+                            LabeledContent("总数", value: String(total))
+                        }
+                        HStack {
+                            Button("上一页") { Task { await viewModel.previousPage() } }
+                                .disabled(!viewModel.canGoPrevious || viewModel.isLoading)
+                            Spacer()
+                            Button("下一页") { Task { await viewModel.nextPage() } }
+                                .disabled(!viewModel.canGoNext || viewModel.isLoading)
+                        }
+                    }
                 }
                 .searchable(text: $holder.searchText, prompt: "搜索兑换码")
                 .onSubmit(of: .search) {

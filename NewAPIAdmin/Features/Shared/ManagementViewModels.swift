@@ -8,16 +8,26 @@ final class ChannelsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var serverMessage: String?
+    @Published var currentPage = 1
+    @Published var total: Int?
 
     private let service: ChannelService
+    private let pageSize = 50
 
     init(service: ChannelService) {
         self.service = service
     }
 
-    func load() async {
+    var canGoPrevious: Bool { currentPage > 1 }
+    var canGoNext: Bool { total.map { currentPage * pageSize < $0 } ?? items.count == pageSize }
+
+    func load(page: Int? = nil) async {
+        let targetPage = max(1, page ?? currentPage)
         await perform {
-            items = try await service.list(page: 1, pageSize: 50).items
+            let response = try await service.list(page: targetPage, pageSize: pageSize)
+            items = response.items
+            total = response.total
+            currentPage = targetPage
         }
     }
 
@@ -27,8 +37,21 @@ final class ChannelsViewModel: ObservableObject {
             return
         }
         await perform {
-            items = try await service.search(keyword: searchText).items
+            let response = try await service.search(keyword: searchText)
+            items = response.items
+            total = response.total
+            currentPage = 1
         }
+    }
+
+    func previousPage() async {
+        guard canGoPrevious else { return }
+        await load(page: currentPage - 1)
+    }
+
+    func nextPage() async {
+        guard canGoNext else { return }
+        await load(page: currentPage + 1)
     }
 
     func delete(_ item: Channel) async {
@@ -93,15 +116,27 @@ final class UsersViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var currentPage = 1
+    @Published var total: Int?
 
     private let service: UserService
+    private let pageSize = 50
 
     init(service: UserService) {
         self.service = service
     }
 
-    func load() async {
-        await perform { items = try await service.list(page: 1, pageSize: 50).items }
+    var canGoPrevious: Bool { currentPage > 1 }
+    var canGoNext: Bool { total.map { currentPage * pageSize < $0 } ?? items.count == pageSize }
+
+    func load(page: Int? = nil) async {
+        let targetPage = max(1, page ?? currentPage)
+        await perform {
+            let response = try await service.list(page: targetPage, pageSize: pageSize)
+            items = response.items
+            total = response.total
+            currentPage = targetPage
+        }
     }
 
     func search() async {
@@ -109,7 +144,22 @@ final class UsersViewModel: ObservableObject {
             await load()
             return
         }
-        await perform { items = try await service.search(keyword: searchText).items }
+        await perform {
+            let response = try await service.search(keyword: searchText)
+            items = response.items
+            total = response.total
+            currentPage = 1
+        }
+    }
+
+    func previousPage() async {
+        guard canGoPrevious else { return }
+        await load(page: currentPage - 1)
+    }
+
+    func nextPage() async {
+        guard canGoNext else { return }
+        await load(page: currentPage + 1)
     }
 
     func manage(_ item: ManagedUser, action: String) async {
@@ -157,15 +207,27 @@ final class RedemptionsViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var currentPage = 1
+    @Published var total: Int?
 
     private let service: RedemptionService
+    private let pageSize = 50
 
     init(service: RedemptionService) {
         self.service = service
     }
 
-    func load() async {
-        await perform { items = try await service.list(page: 1, pageSize: 50).items }
+    var canGoPrevious: Bool { currentPage > 1 }
+    var canGoNext: Bool { total.map { currentPage * pageSize < $0 } ?? items.count == pageSize }
+
+    func load(page: Int? = nil) async {
+        let targetPage = max(1, page ?? currentPage)
+        await perform {
+            let response = try await service.list(page: targetPage, pageSize: pageSize)
+            items = response.items
+            total = response.total
+            currentPage = targetPage
+        }
     }
 
     func search() async {
@@ -173,7 +235,22 @@ final class RedemptionsViewModel: ObservableObject {
             await load()
             return
         }
-        await perform { items = try await service.search(keyword: searchText).items }
+        await perform {
+            let response = try await service.search(keyword: searchText)
+            items = response.items
+            total = response.total
+            currentPage = 1
+        }
+    }
+
+    func previousPage() async {
+        guard canGoPrevious else { return }
+        await load(page: currentPage - 1)
+    }
+
+    func nextPage() async {
+        guard canGoNext else { return }
+        await load(page: currentPage + 1)
     }
 
     func delete(_ item: RedemptionCode) async {

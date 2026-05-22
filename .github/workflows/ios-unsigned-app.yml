@@ -1,0 +1,89 @@
+name: iOS Unsigned App
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: Build configuration
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - Debug
+  push:
+    branches: [main]
+    paths:
+      - "NewAPIAdmin/**"
+      - "NewAPIAdminApp/**"
+      - "Package.swift"
+      - "project.yml"
+      - ".github/workflows/ios-unsigned-app.yml"
+
+jobs:
+  build:
+    name: Build Unsigned iOS App
+    runs-on: macos-14
+    env:
+      BUILD_CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Build Unsigned App
+        run: |
+          xcodebuild \
+            -project NewAPIAdmin.xcodeproj \
+            -scheme NewAPIAdmin \
+            -configuration "$BUILD_CONFIGURATION" \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package App Artifacts
+        run: |
+          APP_PATH=$(ls -d build/DerivedData/Build/Products/${BUILD_CONFIGURATION}-iphoneos/*.app 2>/dev/null | /usr/bin/head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found"
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" NewAPIAdmin-unsigned-app.zip
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          ditto -c -k --sequesterRsrc --keepParent Payload NewAPIAdmin-unsigned.ipa
+
+      - name: Upload Unsigned App
+        uses: actions/upload-artifact@v4
+        with:
+          name: NewAPIAdmin-unsigned-app
+          retention-days: 14
+          path: |
+            NewAPIAdmin-unsigned-app.zip
+            NewAPIAdmin-unsigned.ipa
+
+      - name: Build Summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## Unsigned iOS Build
+
+          Artifact: `NewAPIAdmin-unsigned-app`
+
+          Files:
+          - `NewAPIAdmin-unsigned-app.zip`
+          - `NewAPIAdmin-unsigned.ipa`
+
+          The `.ipa` is unsigned and cannot be installed on an iPhone directly. It is intended for build verification or later signing.
+          EOF

@@ -19,12 +19,12 @@ final class RedemptionService {
         try await client.get("/api/redemption/\(id)")
     }
 
-    func create(_ payload: DynamicObject) async throws -> RedemptionCode {
-        try await client.post("/api/redemption/", body: payload)
+    func create(_ payload: DynamicObject) async throws {
+        let _: EmptyResponseData = try await client.post("/api/redemption/", body: payload)
     }
 
-    func update(_ payload: DynamicObject) async throws -> RedemptionCode {
-        try await client.put("/api/redemption/", body: payload)
+    func update(_ payload: DynamicObject) async throws {
+        let _: EmptyResponseData = try await client.put("/api/redemption/", body: payload)
     }
 
     func delete(id: Int) async throws {
