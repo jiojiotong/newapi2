@@ -87,25 +87,15 @@ private struct UserDetailView: View {
     @State private var confirmingRoleChange = false
 
     private var displayed: ManagedUser { detail ?? item }
+    private var title: String { displayed.username }
+    private var displayNameText: String { displayed.displayName ?? "-" }
+    private var groupText: String { displayed.group ?? "-" }
+    private var quotaText: String { displayed.quota.map(String.init) ?? "-" }
+    private var roleText: String { displayed.role.map(String.init) ?? "-" }
 
     var body: some View {
-        List {
-            Section("基本信息") {
-                LabeledContent("用户名", value: displayed.username)
-                LabeledContent("显示名", value: displayed.displayName ?? "-")
-                LabeledContent("分组", value: displayed.group ?? "-")
-                LabeledContent("额度", value: displayed.quota.map(String.init) ?? "-")
-                LabeledContent("角色", value: displayed.role.map(String.init) ?? "-")
-            }
-            Section("操作") {
-                Button("编辑 JSON") { showingEdit = true }
-                Button("启用用户") { confirmingEnable = true }
-                Button("禁用用户") { confirmingDisable = true }
-                Button("切换管理员角色") { confirmingRoleChange = true }
-                Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
-            }
-        }
-        .navigationTitle(displayed.username)
+        content
+        .navigationTitle(title)
         .task { detail = await viewModel.detail(id: item.id) }
         .confirmationDialog("确认启用用户？", isPresented: $confirmingEnable, titleVisibility: .visible) {
             Button("启用") { Task { await viewModel.manage(displayed, action: "enable") } }
@@ -124,6 +114,33 @@ private struct UserDetailView: View {
             DynamicObjectFormView(title: "编辑用户", initialValues: displayed.raw.values) { payload in
                 await viewModel.update(payload)
             }
+        }
+    }
+
+    private var content: some View {
+        List {
+            basicInfoSection
+            actionSection
+        }
+    }
+
+    private var basicInfoSection: some View {
+        Section("基本信息") {
+            LabeledContent("用户名", value: title)
+            LabeledContent("显示名", value: displayNameText)
+            LabeledContent("分组", value: groupText)
+            LabeledContent("额度", value: quotaText)
+            LabeledContent("角色", value: roleText)
+        }
+    }
+
+    private var actionSection: some View {
+        Section("操作") {
+            Button("编辑 JSON") { showingEdit = true }
+            Button("启用用户") { confirmingEnable = true }
+            Button("禁用用户") { confirmingDisable = true }
+            Button("切换管理员角色") { confirmingRoleChange = true }
+            Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
         }
     }
 }

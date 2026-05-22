@@ -87,21 +87,14 @@ private struct RedemptionDetailView: View {
     @State private var confirmingDelete = false
 
     private var displayed: RedemptionCode { detail ?? item }
+    private var title: String { displayed.key.isEmpty ? "兑换码" : displayed.key }
+    private var nameText: String { displayed.name ?? "-" }
+    private var quotaText: String { displayed.quota.map(String.init) ?? "-" }
+    private var countText: String { displayed.count.map(String.init) ?? "-" }
 
     var body: some View {
-        List {
-            Section("基本信息") {
-                LabeledContent("兑换码", value: displayed.key)
-                LabeledContent("名称", value: displayed.name ?? "-")
-                LabeledContent("额度", value: displayed.quota.map(String.init) ?? "-")
-                LabeledContent("数量", value: displayed.count.map(String.init) ?? "-")
-            }
-            Section("操作") {
-                Button("编辑 JSON") { showingEdit = true }
-                Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
-            }
-        }
-        .navigationTitle(displayed.key.isEmpty ? "兑换码" : displayed.key)
+        content
+        .navigationTitle(title)
         .task { detail = await viewModel.detail(id: item.id) }
         .confirmationDialog("确认删除兑换码？", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
@@ -110,6 +103,29 @@ private struct RedemptionDetailView: View {
             DynamicObjectFormView(title: "编辑兑换码", initialValues: displayed.raw.values) { payload in
                 await viewModel.update(payload)
             }
+        }
+    }
+
+    private var content: some View {
+        List {
+            basicInfoSection
+            actionSection
+        }
+    }
+
+    private var basicInfoSection: some View {
+        Section("基本信息") {
+            LabeledContent("兑换码", value: title)
+            LabeledContent("名称", value: nameText)
+            LabeledContent("额度", value: quotaText)
+            LabeledContent("数量", value: countText)
+        }
+    }
+
+    private var actionSection: some View {
+        Section("操作") {
+            Button("编辑 JSON") { showingEdit = true }
+            Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
         }
     }
 }

@@ -91,23 +91,14 @@ private struct ChannelDetailView: View {
     @State private var confirmingDelete = false
 
     private var displayed: Channel { detail ?? item }
+    private var title: String { displayed.name }
+    private var groupText: String { displayed.group ?? "-" }
+    private var statusText: String { displayed.status.map(String.init) ?? "-" }
+    private var balanceText: String { displayed.balance.map(String.init) ?? "-" }
 
     var body: some View {
-        List {
-            Section("基本信息") {
-                LabeledContent("名称", value: displayed.name)
-                LabeledContent("分组", value: displayed.group ?? "-")
-                LabeledContent("状态", value: displayed.status.map(String.init) ?? "-")
-                LabeledContent("余额", value: displayed.balance.map(String.init) ?? "-")
-            }
-            Section("操作") {
-                Button("编辑 JSON") { showingEdit = true }
-                Button("测试渠道") { Task { await viewModel.test(item) } }
-                Button("更新余额") { Task { await viewModel.updateBalance(item) } }
-                Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
-            }
-        }
-        .navigationTitle(displayed.name)
+        content
+        .navigationTitle(title)
         .task { detail = await viewModel.detail(id: item.id) }
         .confirmationDialog("确认删除渠道？", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
@@ -116,6 +107,31 @@ private struct ChannelDetailView: View {
             DynamicObjectFormView(title: "编辑渠道", initialValues: displayed.raw.values) { payload in
                 await viewModel.update(payload)
             }
+        }
+    }
+
+    private var content: some View {
+        List {
+            basicInfoSection
+            actionSection
+        }
+    }
+
+    private var basicInfoSection: some View {
+        Section("基本信息") {
+            LabeledContent("名称", value: title)
+            LabeledContent("分组", value: groupText)
+            LabeledContent("状态", value: statusText)
+            LabeledContent("余额", value: balanceText)
+        }
+    }
+
+    private var actionSection: some View {
+        Section("操作") {
+            Button("编辑 JSON") { showingEdit = true }
+            Button("测试渠道") { Task { await viewModel.test(item) } }
+            Button("更新余额") { Task { await viewModel.updateBalance(item) } }
+            Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
         }
     }
 }
