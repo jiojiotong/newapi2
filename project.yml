@@ -23,5 +23,12 @@ targets:
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGN_IDENTITY: ""
-    scheme:
-      testTargets: []
+schemes:
+  NewAPIAdmin:
+    build:
+      targets:
+        NewAPIAdmin: all
+    run:
+      config: Debug
+    archive:
+      config: Release
