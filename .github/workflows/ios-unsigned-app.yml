@@ -40,6 +40,10 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen generate
 
+      - name: Normalize Xcode Project Format
+        run: |
+          ruby -0pi -e 'gsub(/objectVersion = \d+;/, "objectVersion = 56;"); gsub(/compatibilityVersion = "Xcode [^"]+";/, "compatibilityVersion = \"Xcode 15.0\";")' NewAPIAdmin.xcodeproj/project.pbxproj
+
       - name: Show Xcode Project Info
         run: xcodebuild -list -project NewAPIAdmin.xcodeproj
 
