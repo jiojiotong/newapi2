@@ -9,24 +9,12 @@ struct KeyValueJSONEditorView: View {
         Section("可视化编辑") {
             if let errorMessage {
                 Text(errorMessage).foregroundStyle(.red)
-            }
-
-            if errorMessage == nil {
-                ForEach($rows) { $row in
-                    HStack {
-                        TextField("Key", text: $row.key)
-                        TextField("Value", text: $row.value)
-                            .adminDecimalKeyboard()
-                            .multilineTextAlignment(.trailing)
-                    }
-                }
-                .onDelete { rows.remove(atOffsets: $0); syncJSON() }
-                .onChange(of: rows) { _ in syncJSON() }
-
-                Button("添加一行") {
-                    rows.append(KeyValueRow(key: "", value: "1"))
-                    syncJSON()
-                }
+            } else if rows.isEmpty {
+                Text("当前 JSON 没有可视化键值项，请使用下方原始 JSON 编辑。")
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("已识别 \(rows.count) 个键值项。为避免 iOS 编译器在复杂 SwiftUI 表达式上崩溃，请暂时使用下方原始 JSON 编辑。")
+                    .foregroundStyle(.secondary)
             }
         }
         .onAppear { loadRows() }
@@ -50,27 +38,6 @@ struct KeyValueJSONEditorView: View {
         rows = object.keys.sorted().map { key in
             KeyValueRow(key: key, value: String(describing: object[key] ?? ""))
         }
-        errorMessage = nil
-    }
-
-    private func syncJSON() {
-        var object: [String: Any] = [:]
-        for row in rows where !row.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            if let intValue = Int(row.value) {
-                object[row.key] = intValue
-            } else if let doubleValue = Double(row.value) {
-                object[row.key] = doubleValue
-            } else {
-                object[row.key] = row.value
-            }
-        }
-
-        guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys]),
-              let text = String(data: data, encoding: .utf8) else {
-            errorMessage = "无法生成 JSON"
-            return
-        }
-        jsonText = text
         errorMessage = nil
     }
 
