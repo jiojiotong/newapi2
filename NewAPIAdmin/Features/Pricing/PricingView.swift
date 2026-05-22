@@ -127,6 +127,9 @@ private struct ModelPricingListView: View {
 private struct ModelPricingRowView: View {
     let row: ModelPricingRow
 
+    private var inputDisplay: Double { row.modelRatio * 2 }
+    private var outputDisplay: Double { row.modelRatio * 2 * row.completionRatio }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(row.modelName)
@@ -136,8 +139,6 @@ private struct ModelPricingRowView: View {
                 if let price = row.modelPrice, price > 0 {
                     Label("固定 \(formatNumber(price))", systemImage: "dollarsign.circle")
                 } else {
-                    let inputDisplay = row.modelRatio * 2
-                    let outputDisplay = row.modelRatio * 2 * row.completionRatio
                     Label("输入 \(formatNumber(inputDisplay))", systemImage: "arrow.right")
                     Label("输出 \(formatNumber(outputDisplay))", systemImage: "arrow.left")
                 }
