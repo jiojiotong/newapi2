@@ -472,6 +472,37 @@ final class PricingViewModel: ObservableObject {
 
     // MARK: - Model operations
 
+    func saveSingleModel(_ modelName: String) async {
+        errorMessage = nil
+        guard let row = modelRows.first(where: { $0.modelName == modelName }) else { return }
+        do {
+            // Fetch current server state, merge this model's changes, save back
+            let currentOptions = try await service.fetchOptions()
+
+            var modelRatioMap = parseJSON(currentOptions["ModelRatio"])
+            var completionRatioMap = parseJSON(currentOptions["CompletionRatio"])
+            var modelPriceMap = parseJSON(currentOptions["ModelPrice"])
+
+            modelRatioMap[modelName] = row.modelRatio
+            completionRatioMap[modelName] = row.completionRatio
+            if let mp = row.modelPrice, mp > 0 {
+                modelPriceMap[modelName] = mp
+            } else {
+                modelPriceMap.removeValue(forKey: modelName)
+            }
+
+            var payload: [String: String] = [:]
+            payload["ModelRatio"] = toJSON(modelRatioMap)
+            payload["CompletionRatio"] = toJSON(completionRatioMap)
+            payload["ModelPrice"] = toJSON(modelPriceMap)
+
+            try await service.batchUpdate(payload)
+            successMessage = "\(modelName) 定价已保存"
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func addModel(_ name: String) {
         guard !modelRows.contains(where: { $0.modelName == name }) else { return }
         modelRows.append(ModelPricingRow(modelName: name, modelRatio: 1, completionRatio: 1))

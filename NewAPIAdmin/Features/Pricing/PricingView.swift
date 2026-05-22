@@ -277,8 +277,8 @@ private struct ModelPricingEditView: View {
             audioCompletionRatio: Double(audioCompletionRatio)
         )
 
-        // Save to server immediately
-        await viewModel.saveAll()
+        // Save only this model's pricing to server
+        await viewModel.saveSingleModel(modelName)
         if viewModel.errorMessage == nil {
             dismiss()
         }
