@@ -84,8 +84,22 @@ struct ChannelFormView: View {
             }
 
             Section("分组与调度") {
-                NavigationLink {
-                    GroupSelectionView(availableGroups: availableGroups, selectedGroups: $selectedGroups)
+                Menu {
+                    ForEach(availableGroups, id: \.self) { groupName in
+                        Button {
+                            if selectedGroups.contains(groupName) {
+                                selectedGroups.remove(groupName)
+                            } else {
+                                selectedGroups.insert(groupName)
+                            }
+                        } label: {
+                            if selectedGroups.contains(groupName) {
+                                Label(groupName, systemImage: "checkmark")
+                            } else {
+                                Text(groupName)
+                            }
+                        }
+                    }
                 } label: {
                     HStack {
                         Text("分组")
@@ -93,6 +107,9 @@ struct ChannelFormView: View {
                         Text(selectedGroups.isEmpty ? "未选择" : selectedGroups.sorted().joined(separator: ", "))
                             .foregroundColor(Color.secondary)
                             .lineLimit(1)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(Font.caption)
+                            .foregroundColor(Color.secondary)
                     }
                 }
                 HStack {
@@ -384,38 +401,6 @@ private struct ChannelModelPriceEditView: View {
             return String(Int(value))
         }
         return String(value)
-    }
-}
-
-// MARK: - Group Selection
-
-private struct GroupSelectionView: View {
-    let availableGroups: [String]
-    @Binding var selectedGroups: Set<String>
-
-    var body: some View {
-        List {
-            ForEach(availableGroups, id: \.self) { groupName in
-                Button {
-                    if selectedGroups.contains(groupName) {
-                        selectedGroups.remove(groupName)
-                    } else {
-                        selectedGroups.insert(groupName)
-                    }
-                } label: {
-                    HStack {
-                        Text(groupName)
-                            .foregroundColor(Color.primary)
-                        Spacer()
-                        if selectedGroups.contains(groupName) {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(Color.accentColor)
-                        }
-                    }
-                }
-            }
-        }
-        .navigationTitle("选择分组")
     }
 }
 
