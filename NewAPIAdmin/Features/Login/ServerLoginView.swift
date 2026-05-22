@@ -15,7 +15,15 @@ struct ServerLoginView: View {
                     TextField("服务器地址", text: $serverURL)
                         .adminURLKeyboard()
 
-                    TextField("管理员用户名", text: $username)
+                    TextField("管理员用户名", text: Binding(get: {
+                        username
+                    }, set: { newValue in
+                        username = newValue
+                        if let remembered = sessionStore.rememberedPassword(serverURL: serverURL, username: newValue) {
+                            password = remembered
+                            rememberPassword = true
+                        }
+                    }))
                         .adminPlainTextInput()
 
                     SecureField("密码", text: $password)
@@ -30,7 +38,7 @@ struct ServerLoginView: View {
                 if let errorMessage = sessionStore.errorMessage {
                     Section {
                         Text(errorMessage)
-                            .foregroundStyle(.red)
+                            .foregroundColor(Color.red)
                     }
                 }
 
@@ -44,7 +52,7 @@ struct ServerLoginView: View {
                             ProgressView()
                         } else {
                             Text("登录")
-                                .frame(maxWidth: .infinity)
+                                .frame(maxWidth: CGFloat.infinity)
                         }
                     }
                     .disabled(sessionStore.isLoading || serverURL.isEmpty || username.isEmpty || password.isEmpty)
@@ -54,12 +62,6 @@ struct ServerLoginView: View {
             .onAppear {
                 if serverURL.isEmpty {
                     serverURL = sessionStore.lastServerURL
-                }
-            }
-            .onChange(of: username) { newValue in
-                if let remembered = sessionStore.rememberedPassword(serverURL: serverURL, username: newValue) {
-                    password = remembered
-                    rememberPassword = true
                 }
             }
         }

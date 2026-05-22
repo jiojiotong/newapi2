@@ -7,17 +7,17 @@ struct PlaceholderFeatureView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "hammer")
-                .font(.system(size: 44))
-                .foregroundStyle(.secondary)
+                .font(Font.system(size: 44))
+                .foregroundColor(Color.secondary)
             Text(title)
-                .font(.title2.bold())
+                .font(Font.title2.bold())
             Text(description)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+                .font(Font.body)
+                .foregroundColor(Color.secondary)
+                .multilineTextAlignment(TextAlignment.center)
+                .padding(Edge.Set.horizontal, 24)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle(title)
+        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
+        .navigationTitle(title)
     }
 }

@@ -7,9 +7,9 @@ struct LoadingStateView: View {
         VStack(spacing: 12) {
             ProgressView()
             Text(title)
-                .foregroundStyle(.secondary)
+                .foregroundColor(Color.secondary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
     }
 }
 
@@ -21,17 +21,17 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: systemImage)
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
+                .font(Font.largeTitle)
+                .foregroundColor(Color.secondary)
             Text(title)
-                .font(.headline)
+                .font(Font.headline)
             Text(message)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .font(Font.body)
+                .foregroundColor(Color.secondary)
+                .multilineTextAlignment(TextAlignment.center)
         }
         .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
     }
 }
 
@@ -42,17 +42,17 @@ struct ErrorStateView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.orange)
+                .font(Font.largeTitle)
+                .foregroundColor(Color.orange)
             Text(message)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+                .multilineTextAlignment(TextAlignment.center)
+                .foregroundColor(Color.secondary)
             if let retry {
                 Button("重试", action: retry)
             }
         }
         .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
     }
 }
 
@@ -62,16 +62,16 @@ struct PermissionStateView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "lock.trianglebadge.exclamationmark")
-                .font(.largeTitle)
-                .foregroundStyle(.orange)
+                .font(Font.largeTitle)
+                .foregroundColor(Color.orange)
             Text("权限不足")
-                .font(.headline)
+                .font(Font.headline)
             Text(message)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .font(Font.body)
+                .foregroundColor(Color.secondary)
+                .multilineTextAlignment(TextAlignment.center)
         }
         .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
     }
 }

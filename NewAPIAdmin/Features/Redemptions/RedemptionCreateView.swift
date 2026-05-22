@@ -13,7 +13,7 @@ struct RedemptionCreateView: View {
     var body: some View {
         Form {
             if let localError {
-                Section { Text(localError).foregroundStyle(.red) }
+                Section { Text(localError).foregroundColor(Color.red) }
             }
 
             Section("创建") {

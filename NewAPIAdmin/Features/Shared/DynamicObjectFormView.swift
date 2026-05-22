@@ -27,13 +27,13 @@ struct DynamicObjectFormView: View {
             if let errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundColor(Color.red)
                 }
             }
 
             Section("JSON") {
                 TextEditor(text: $jsonText)
-                    .font(.system(.body, design: .monospaced))
+                    .font(Font.system(Font.TextStyle.body, design: Font.Design.monospaced))
                     .frame(minHeight: 280)
             }
         }

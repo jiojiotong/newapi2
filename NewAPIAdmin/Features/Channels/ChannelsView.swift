@@ -10,7 +10,7 @@ struct ChannelsView: View {
             if let viewModel = holder.viewModel {
                 List {
                     if let error = viewModel.errorMessage {
-                        Section { Text(error).foregroundStyle(.red) }
+                        Section { Text(error).foregroundColor(Color.red) }
                     }
                     if let message = viewModel.serverMessage {
                         Section("服务器消息") { Text(message) }
@@ -20,13 +20,13 @@ struct ChannelsView: View {
                             ChannelDetailView(item: item, viewModel: viewModel)
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(item.name).font(.headline)
+                                Text(item.name).font(Font.headline)
                                 Text("类型 \(item.type.map(String.init) ?? "-") · 分组 \(item.group ?? "-") · 状态 \(item.status.map(String.init) ?? "-")")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .font(Font.caption)
+                                    .foregroundColor(Color.secondary)
                                 Text("余额 \(item.balance.map(String.init) ?? "-") · 响应 \(item.responseTime.map(String.init) ?? "-") · 优先级 \(item.priority.map(String.init) ?? "-") · 权重 \(item.weight.map(String.init) ?? "-")")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .font(Font.caption)
+                                    .foregroundColor(Color.secondary)
                             }
                         }
                     }
@@ -104,13 +104,13 @@ private struct ChannelDetailView: View {
                 Button("编辑 JSON") { showingEdit = true }
                 Button("测试渠道") { Task { await viewModel.test(item) } }
                 Button("更新余额") { Task { await viewModel.updateBalance(item) } }
-                Button("删除", role: .destructive) { confirmingDelete = true }
+                Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
             }
         }
         .navigationTitle(displayed.name)
         .task { detail = await viewModel.detail(id: item.id) }
         .confirmationDialog("确认删除渠道？", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("删除", role: .destructive) { Task { await viewModel.delete(displayed) } }
+            Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
         }
         .navigationDestination(isPresented: $showingEdit) {
             DynamicObjectFormView(title: "编辑渠道", initialValues: displayed.raw.values) { payload in

@@ -10,17 +10,17 @@ struct RedemptionsView: View {
         Group {
             if let viewModel = holder.viewModel {
                 List {
-                    if let error = viewModel.errorMessage { Section { Text(error).foregroundStyle(.red) } }
+                    if let error = viewModel.errorMessage { Section { Text(error).foregroundColor(Color.red) } }
                     ForEach(viewModel.items) { item in
                         NavigationLink {
                             RedemptionDetailView(item: item, viewModel: viewModel)
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(item.key.isEmpty ? (item.name ?? "兑换码") : item.key).font(.headline)
+                                Text(item.key.isEmpty ? (item.name ?? "兑换码") : item.key).font(Font.headline)
                                 Text("额度 \(item.quota.map(String.init) ?? "-") · 数量 \(item.count.map(String.init) ?? "-") · 已用 \(item.usedCount.map(String.init) ?? "-")")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(Font.caption).foregroundColor(Color.secondary)
                                 Text("状态 \(item.status.map(String.init) ?? "-") · 过期 \(item.expiredTime.map(String.init) ?? "-")")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(Font.caption).foregroundColor(Color.secondary)
                             }
                         }
                     }
@@ -56,7 +56,7 @@ struct RedemptionsView: View {
                     RedemptionCreateView(viewModel: viewModel)
                 }
                 .confirmationDialog("确认清理失效兑换码？", isPresented: $confirmingClearInvalid, titleVisibility: .visible) {
-                    Button("清理", role: .destructive) { Task { await viewModel.clearInvalid() } }
+                    Button("清理", role: ButtonRole.destructive) { Task { await viewModel.clearInvalid() } }
                 }
             } else {
                 LoadingStateView(title: "准备兑换码管理")
@@ -98,13 +98,13 @@ private struct RedemptionDetailView: View {
             }
             Section("操作") {
                 Button("编辑 JSON") { showingEdit = true }
-                Button("删除", role: .destructive) { confirmingDelete = true }
+                Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
             }
         }
         .navigationTitle(displayed.key.isEmpty ? "兑换码" : displayed.key)
         .task { detail = await viewModel.detail(id: item.id) }
         .confirmationDialog("确认删除兑换码？", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("删除", role: .destructive) { Task { await viewModel.delete(displayed) } }
+            Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
         }
         .navigationDestination(isPresented: $showingEdit) {
             DynamicObjectFormView(title: "编辑兑换码", initialValues: displayed.raw.values) { payload in

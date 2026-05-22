@@ -9,10 +9,10 @@ struct PricingView: View {
             if let viewModel = holder.viewModel {
                 Form {
                     if let error = viewModel.errorMessage {
-                        Section { Text(error).foregroundStyle(.red) }
+                        Section { Text(error).foregroundColor(Color.red) }
                     }
                     if let success = viewModel.successMessage {
-                        Section { Text(success).foregroundStyle(.green) }
+                        Section { Text(success).foregroundColor(Color.green) }
                     }
 
                     Section("选项") {
@@ -31,12 +31,14 @@ struct PricingView: View {
                     KeyValueJSONEditorView(jsonText: $holder.editorText)
 
                     Section("原始 JSON") {
-                        TextEditor(text: $holder.editorText)
-                            .font(.system(.body, design: .monospaced))
+                        TextEditor(text: Binding(get: {
+                            holder.editorText
+                        }, set: { newValue in
+                            holder.editorText = newValue
+                            viewModel.editorText = newValue
+                        }))
+                            .font(Font.system(Font.TextStyle.body, design: Font.Design.monospaced))
                             .frame(minHeight: 260)
-                            .onChange(of: holder.editorText) { newValue in
-                                viewModel.editorText = newValue
-                            }
                     }
                 }
                 .overlay {
@@ -46,9 +48,6 @@ struct PricingView: View {
                     Button("保存") { Task { await viewModel.saveSelected() } }
                     Button("批量保存模型") { Task { await viewModel.saveModelBatch() } }
                     Button("刷新") { Task { await viewModel.load(); holder.editorText = viewModel.editorText } }
-                }
-                .onChange(of: viewModel.editorText) { newValue in
-                    holder.editorText = newValue
                 }
             } else {
                 LoadingStateView(title: "准备定价管理")

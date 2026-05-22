@@ -15,7 +15,7 @@ struct SettingsView: View {
                     Task { await sessionStore.revalidateSession() }
                 }
 
-                Button(role: .destructive) {
+                Button(role: ButtonRole.destructive) {
                     Task {
                         await sessionStore.logout()
                     }
@@ -23,7 +23,7 @@ struct SettingsView: View {
                     Text("退出登录")
                 }
 
-                Button(role: .destructive) {
+                Button(role: ButtonRole.destructive) {
                     sessionStore.clearLocalData()
                 } label: {
                     Text("清理本地数据")
@@ -31,7 +31,7 @@ struct SettingsView: View {
             }
 
             if let error = sessionStore.errorMessage {
-                Section { Text(error).foregroundStyle(.red) }
+                Section { Text(error).foregroundColor(Color.red) }
             }
         }
         .navigationTitle("设置")

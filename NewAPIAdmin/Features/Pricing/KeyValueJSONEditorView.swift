@@ -8,17 +8,16 @@ struct KeyValueJSONEditorView: View {
     var body: some View {
         Section("可视化编辑") {
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                Text(errorMessage).foregroundColor(Color.red)
             } else if rows.isEmpty {
                 Text("当前 JSON 没有可视化键值项，请使用下方原始 JSON 编辑。")
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(Color.secondary)
             } else {
                 Text("已识别 \(rows.count) 个键值项。为避免 iOS 编译器在复杂 SwiftUI 表达式上崩溃，请暂时使用下方原始 JSON 编辑。")
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(Color.secondary)
             }
         }
         .onAppear { loadRows() }
-        .onChange(of: jsonText) { _ in loadRows() }
     }
 
     private func loadRows() {

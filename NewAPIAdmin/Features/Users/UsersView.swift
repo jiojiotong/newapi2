@@ -9,17 +9,17 @@ struct UsersView: View {
         Group {
             if let viewModel = holder.viewModel {
                 List {
-                    if let error = viewModel.errorMessage { Section { Text(error).foregroundStyle(.red) } }
+                    if let error = viewModel.errorMessage { Section { Text(error).foregroundColor(Color.red) } }
                     ForEach(viewModel.items) { item in
                         NavigationLink {
                             UserDetailView(item: item, viewModel: viewModel)
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(item.username).font(.headline)
+                                Text(item.username).font(Font.headline)
                                 Text("显示名 \(item.displayName ?? "-") · 分组 \(item.group ?? "-")")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(Font.caption).foregroundColor(Color.secondary)
                                 Text("额度 \(item.quota.map(String.init) ?? "-") · 状态 \(item.status.map(String.init) ?? "-") · 角色 \(item.role.map(String.init) ?? "-")")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(Font.caption).foregroundColor(Color.secondary)
                             }
                         }
                     }
@@ -102,7 +102,7 @@ private struct UserDetailView: View {
                 Button("启用用户") { confirmingEnable = true }
                 Button("禁用用户") { confirmingDisable = true }
                 Button("切换管理员角色") { confirmingRoleChange = true }
-                Button("删除", role: .destructive) { confirmingDelete = true }
+                Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
             }
         }
         .navigationTitle(displayed.username)
@@ -111,14 +111,14 @@ private struct UserDetailView: View {
             Button("启用") { Task { await viewModel.manage(displayed, action: "enable") } }
         }
         .confirmationDialog("确认禁用用户？", isPresented: $confirmingDisable, titleVisibility: .visible) {
-            Button("禁用", role: .destructive) { Task { await viewModel.manage(displayed, action: "disable") } }
+            Button("禁用", role: ButtonRole.destructive) { Task { await viewModel.manage(displayed, action: "disable") } }
         }
         .confirmationDialog("确认切换管理员角色？", isPresented: $confirmingRoleChange, titleVisibility: .visible) {
             Button("设为管理员") { Task { await viewModel.manage(displayed, action: "promote") } }
-            Button("降为普通用户", role: .destructive) { Task { await viewModel.manage(displayed, action: "demote") } }
+            Button("降为普通用户", role: ButtonRole.destructive) { Task { await viewModel.manage(displayed, action: "demote") } }
         }
         .confirmationDialog("确认删除用户？", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("删除", role: .destructive) { Task { await viewModel.delete(displayed) } }
+            Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
         }
         .navigationDestination(isPresented: $showingEdit) {
             DynamicObjectFormView(title: "编辑用户", initialValues: displayed.raw.values) { payload in
