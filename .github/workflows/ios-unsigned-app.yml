@@ -23,7 +23,7 @@ on:
 jobs:
   build:
     name: Build Unsigned iOS App
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       BUILD_CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
 
@@ -32,17 +32,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$XCODE_PATH" ]; then
+            XCODE_PATH=/Applications/Xcode.app
+          fi
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate Xcode Project
         run: xcodegen generate
-
-      - name: Normalize Xcode Project Format
-        run: |
-          ruby -0pi -e 'gsub(/objectVersion = \d+;/, "objectVersion = 56;"); gsub(/compatibilityVersion = "Xcode [^"]+";/, "compatibilityVersion = \"Xcode 15.0\";")' NewAPIAdmin.xcodeproj/project.pbxproj
 
       - name: Show Xcode Project Info
         run: xcodebuild -list -project NewAPIAdmin.xcodeproj
