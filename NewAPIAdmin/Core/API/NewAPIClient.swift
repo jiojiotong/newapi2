@@ -44,6 +44,11 @@ final class NewAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
 
+        if let cookies = HTTPCookieStorage.shared.cookies(for: url), !cookies.isEmpty {
+            let cookieHeader = cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
+
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try encoder.encode(body)
@@ -54,6 +59,7 @@ final class NewAPIClient {
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw NewAPIError.invalidResponse
             }
+            storeCookies(from: httpResponse, for: url)
 
             switch httpResponse.statusCode {
             case 401:
@@ -121,6 +127,17 @@ final class NewAPIClient {
             throw NewAPIError.invalidServerURL
         }
         return url
+    }
+
+    private func storeCookies(from response: HTTPURLResponse, for url: URL) {
+        let headerFields = response.allHeaderFields.reduce(into: [String: String]()) { fields, item in
+            guard let key = item.key as? String, let value = item.value as? String else { return }
+            fields[key] = value
+        }
+        let cookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields, for: url)
+        for cookie in cookies {
+            HTTPCookieStorage.shared.setCookie(cookie)
+        }
     }
 }
 
