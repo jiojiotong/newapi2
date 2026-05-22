@@ -76,6 +76,11 @@ struct ChannelFormView: View {
                     }
                 }
                 .disabled(key.isEmpty || isFetchingModels)
+                if editingChannel == nil {
+                    Text("新建渠道获取模型需要 Root 权限")
+                        .font(Font.caption)
+                        .foregroundColor(Color.secondary)
+                }
             }
 
             Section("分组与调度") {
@@ -257,6 +262,7 @@ struct ChannelFormView: View {
     private func fetchModelsFromUpstream() async {
         isFetchingModels = true
         defer { isFetchingModels = false }
+        viewModel.errorMessage = nil
 
         let fetchedModels: [String]?
         if let channel = editingChannel {
