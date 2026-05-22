@@ -29,6 +29,9 @@ public final class SessionStore: ObservableObject {
         profile = saved.0
         adminUser = saved.1
         let restoredClient = NewAPIClient(baseURL: saved.0.baseURL)
+        if let token = storage.loadAccessToken() {
+            restoredClient.setAccessToken(token)
+        }
         client = restoredClient
 
         do {
@@ -59,8 +62,19 @@ public final class SessionStore: ObservableObject {
                 throw NewAPIError.twoFactorUnsupported
             }
 
-            guard let user = loginResponse.adminUser else {
-                throw NewAPIError.missingData
+            // Extract token from login response or from session cookie
+            let token = loginResponse.token ?? extractSessionToken(for: normalizedURL)
+            if let token, !token.isEmpty {
+                apiClient.setAccessToken(token)
+                storage.saveAccessToken(token)
+            }
+
+            // If login response contains user info directly, use it; otherwise fetch from /api/user/self
+            let user: AdminUser
+            if let responseUser = loginResponse.adminUser {
+                user = responseUser
+            } else {
+                user = try await apiClient.get("/api/user/self")
             }
 
             guard user.isAdmin else {
@@ -176,5 +190,13 @@ public final class SessionStore: ObservableObject {
         } else {
             storage.clear()
         }
+    }
+
+    private func extractSessionToken(for url: URL) -> String? {
+        guard let cookies = HTTPCookieStorage.shared.cookies(for: url) else {
+            return nil
+        }
+        // NewAPI uses "session" cookie name for the auth token
+        return cookies.first(where: { $0.name == "session" })?.value
     }
 }
