@@ -104,6 +104,24 @@ final class ChannelsViewModel: ObservableObject {
         }
     }
 
+    func fetchModels(channelId: Int) async -> [String]? {
+        do {
+            return try await service.fetchModels(channelId: channelId)
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func fetchModels(type: Int, key: String, baseURL: String) async -> [String]? {
+        do {
+            return try await service.fetchModels(type: type, key: key, baseURL: baseURL)
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
     private func perform(_ operation: () async throws -> Void) async {
         errorMessage = nil
         isLoading = true

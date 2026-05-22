@@ -19,6 +19,7 @@ struct ChannelFormView: View {
     @State private var tag = ""
     @State private var remark = ""
     @State private var isSaving = false
+    @State private var isFetchingModels = false
 
     var body: some View {
         Form {
@@ -61,6 +62,18 @@ struct ChannelFormView: View {
                 Text("一行一个模型名称，或用逗号分隔")
                     .font(Font.caption)
                     .foregroundColor(Color.secondary)
+                Button {
+                    Task { await fetchModelsFromUpstream() }
+                } label: {
+                    HStack {
+                        if isFetchingModels {
+                            ProgressView()
+                                .padding(.trailing, 4)
+                        }
+                        Text("从上游获取模型列表")
+                    }
+                }
+                .disabled(key.isEmpty || isFetchingModels)
             }
 
             Section("分组与调度") {
@@ -170,6 +183,23 @@ struct ChannelFormView: View {
 
         if viewModel.errorMessage == nil {
             dismiss()
+        }
+    }
+
+    private func fetchModelsFromUpstream() async {
+        isFetchingModels = true
+        defer { isFetchingModels = false }
+
+        let fetchedModels: [String]?
+        if let channel = editingChannel {
+            fetchedModels = await viewModel.fetchModels(channelId: channel.id)
+        } else {
+            let firstKey = key.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespaces) ?? key
+            fetchedModels = await viewModel.fetchModels(type: type, key: firstKey, baseURL: baseURL)
+        }
+
+        if let fetched = fetchedModels, !fetched.isEmpty {
+            models = fetched.joined(separator: "\n")
         }
     }
 }

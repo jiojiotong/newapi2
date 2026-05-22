@@ -40,6 +40,16 @@ final class ChannelService {
         let _: EmptyResponseData = try await client.get("/api/channel/update_balance/\(id)")
     }
 
+    /// Fetch models from upstream for an existing channel
+    func fetchModels(channelId: Int) async throws -> [String] {
+        try await client.get("/api/channel/fetch_models/\(channelId)")
+    }
+
+    /// Fetch models from upstream with explicit parameters (for new channels)
+    func fetchModels(type: Int, key: String, baseURL: String) async throws -> [String] {
+        try await client.post("/api/channel/fetch_models", body: FetchModelsRequest(type: type, key: key, baseURL: baseURL))
+    }
+
     private func pagination(page: Int, pageSize: Int) -> [URLQueryItem] {
         [URLQueryItem(name: "p", value: String(page)), URLQueryItem(name: "page_size", value: String(pageSize))]
     }
@@ -48,4 +58,16 @@ final class ChannelService {
 private struct AddChannelRequest: Encodable {
     let mode: String
     let channel: DynamicObject
+}
+
+private struct FetchModelsRequest: Encodable {
+    let type: Int
+    let key: String
+    let baseURL: String
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case key
+        case baseURL = "base_url"
+    }
 }
