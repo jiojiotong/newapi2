@@ -19,7 +19,12 @@ final class ChannelsViewModel: ObservableObject {
     }
 
     var canGoPrevious: Bool { currentPage > 1 }
-    var canGoNext: Bool { total.map { currentPage * pageSize < $0 } ?? items.count == pageSize }
+    var canGoNext: Bool {
+        if let total {
+            return currentPage * pageSize < total
+        }
+        return items.count == pageSize
+    }
 
     func load(page: Int? = nil) async {
         let targetPage = max(1, page ?? currentPage)
@@ -127,7 +132,12 @@ final class UsersViewModel: ObservableObject {
     }
 
     var canGoPrevious: Bool { currentPage > 1 }
-    var canGoNext: Bool { total.map { currentPage * pageSize < $0 } ?? items.count == pageSize }
+    var canGoNext: Bool {
+        if let total {
+            return currentPage * pageSize < total
+        }
+        return items.count == pageSize
+    }
 
     func load(page: Int? = nil) async {
         let targetPage = max(1, page ?? currentPage)
@@ -218,7 +228,12 @@ final class RedemptionsViewModel: ObservableObject {
     }
 
     var canGoPrevious: Bool { currentPage > 1 }
-    var canGoNext: Bool { total.map { currentPage * pageSize < $0 } ?? items.count == pageSize }
+    var canGoNext: Bool {
+        if let total {
+            return currentPage * pageSize < total
+        }
+        return items.count == pageSize
+    }
 
     func load(page: Int? = nil) async {
         let targetPage = max(1, page ?? currentPage)
