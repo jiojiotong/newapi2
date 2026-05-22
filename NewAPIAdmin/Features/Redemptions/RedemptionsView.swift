@@ -7,63 +7,80 @@ struct RedemptionsView: View {
     @State private var confirmingClearInvalid = false
 
     var body: some View {
+        content
+            .navigationTitle("兑换码")
+            .task { setupAndLoad() }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         Group {
             if let viewModel = holder.viewModel {
-                List {
-                    if let error = viewModel.errorMessage { Section { Text(error).foregroundColor(Color.red) } }
-                    ForEach(viewModel.items) { item in
-                        NavigationLink {
-                            RedemptionDetailView(item: item, viewModel: viewModel)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(item.key.isEmpty ? (item.name ?? "兑换码") : item.key).font(Font.headline)
-                                Text("额度 \(item.quota.map { String($0) } ?? "-") · 数量 \(item.count.map { String($0) } ?? "-") · 已用 \(item.usedCount.map { String($0) } ?? "-")")
-                                    .font(Font.caption).foregroundColor(Color.secondary)
-                                Text("状态 \(item.status.map { String($0) } ?? "-") · 过期 \(item.expiredTime.map { String($0) } ?? "-")")
-                                    .font(Font.caption).foregroundColor(Color.secondary)
-                            }
-                        }
-                    }
-                    Section {
-                        LabeledContent("当前页", value: String(viewModel.currentPage))
-                        if let total = viewModel.total {
-                            LabeledContent("总数", value: String(total))
-                        }
-                        HStack {
-                            Button("上一页") { Task { await viewModel.previousPage() } }
-                                .disabled(!viewModel.canGoPrevious || viewModel.isLoading)
-                            Spacer()
-                            Button("下一页") { Task { await viewModel.nextPage() } }
-                                .disabled(!viewModel.canGoNext || viewModel.isLoading)
-                        }
-                    }
-                }
-                .searchable(text: $holder.searchText, prompt: "搜索兑换码")
-                .onSubmit(of: .search) {
-                    viewModel.searchText = holder.searchText
-                    Task { await viewModel.search() }
-                }
-                .overlay {
-                    if viewModel.isLoading { LoadingStateView(title: "加载兑换码") }
-                    else if viewModel.items.isEmpty { EmptyStateView(title: "没有兑换码", message: "创建兑换码或调整搜索条件。") }
-                }
-                .toolbar {
-                    Button("新增") { showingCreate = true }
-                    Button("清理失效") { confirmingClearInvalid = true }
-                    Button("刷新") { Task { await viewModel.load() } }
-                }
-                .navigationDestination(isPresented: $showingCreate) {
-                    RedemptionCreateView(viewModel: viewModel)
-                }
-                .confirmationDialog("确认清理失效兑换码？", isPresented: $confirmingClearInvalid, titleVisibility: .visible) {
-                    Button("清理", role: ButtonRole.destructive) { Task { await viewModel.clearInvalid() } }
-                }
+                redemptionList(viewModel: viewModel)
             } else {
                 LoadingStateView(title: "准备兑换码管理")
             }
         }
-        .navigationTitle("兑换码")
-        .task { setupAndLoad() }
+    }
+
+    private func redemptionList(viewModel: RedemptionsViewModel) -> some View {
+        List {
+            if let error = viewModel.errorMessage { Section { Text(error).foregroundColor(Color.red) } }
+            ForEach(viewModel.items) { item in
+                NavigationLink {
+                    RedemptionDetailView(item: item, viewModel: viewModel)
+                } label: {
+                    redemptionRow(item)
+                }
+            }
+            paginationSection(viewModel: viewModel)
+        }
+        .searchable(text: $holder.searchText, prompt: "搜索兑换码")
+        .onSubmit(of: .search) {
+            viewModel.searchText = holder.searchText
+            Task { await viewModel.search() }
+        }
+        .overlay {
+            if viewModel.isLoading { LoadingStateView(title: "加载兑换码") }
+            else if viewModel.items.isEmpty { EmptyStateView(title: "没有兑换码", message: "创建兑换码或调整搜索条件。") }
+        }
+        .toolbar {
+            Button("新增") { showingCreate = true }
+            Button("清理失效") { confirmingClearInvalid = true }
+            Button("刷新") { Task { await viewModel.load() } }
+        }
+        .navigationDestination(isPresented: $showingCreate) {
+            RedemptionCreateView(viewModel: viewModel)
+        }
+        .confirmationDialog("确认清理失效兑换码？", isPresented: $confirmingClearInvalid, titleVisibility: .visible) {
+            Button("清理", role: ButtonRole.destructive) { Task { await viewModel.clearInvalid() } }
+        }
+    }
+
+    private func redemptionRow(_ item: RedemptionCode) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(item.key.isEmpty ? (item.name ?? "兑换码") : item.key).font(Font.headline)
+            Text("额度 \(item.quota.map { String($0) } ?? "-") · 数量 \(item.count.map { String($0) } ?? "-") · 已用 \(item.usedCount.map { String($0) } ?? "-")")
+                .font(Font.caption).foregroundColor(Color.secondary)
+            Text("状态 \(item.status.map { String($0) } ?? "-") · 过期 \(item.expiredTime.map { String($0) } ?? "-")")
+                .font(Font.caption).foregroundColor(Color.secondary)
+        }
+    }
+
+    private func paginationSection(viewModel: RedemptionsViewModel) -> some View {
+        Section {
+            LabeledContent("当前页", value: String(viewModel.currentPage))
+            if let total = viewModel.total {
+                LabeledContent("总数", value: String(total))
+            }
+            HStack {
+                Button("上一页") { Task { await viewModel.previousPage() } }
+                    .disabled(!viewModel.canGoPrevious || viewModel.isLoading)
+                Spacer()
+                Button("下一页") { Task { await viewModel.nextPage() } }
+                    .disabled(!viewModel.canGoNext || viewModel.isLoading)
+            }
+        }
     }
 
     private func setupAndLoad() {
