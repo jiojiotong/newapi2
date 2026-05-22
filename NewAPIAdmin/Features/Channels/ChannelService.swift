@@ -40,6 +40,11 @@ final class ChannelService {
         let _: EmptyResponseData = try await client.get("/api/channel/update_balance/\(id)")
     }
 
+    /// Fetch available groups from server
+    func fetchGroups() async throws -> [String] {
+        try await client.get("/api/group/")
+    }
+
     /// Fetch models from upstream for an existing channel
     func fetchModels(channelId: Int) async throws -> [String] {
         try await client.get("/api/channel/fetch_models/\(channelId)")

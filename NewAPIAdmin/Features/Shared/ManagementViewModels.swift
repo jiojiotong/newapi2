@@ -122,6 +122,14 @@ final class ChannelsViewModel: ObservableObject {
         }
     }
 
+    func fetchGroups() async -> [String] {
+        do {
+            return try await service.fetchGroups()
+        } catch {
+            return []
+        }
+    }
+
     private func perform(_ operation: () async throws -> Void) async {
         errorMessage = nil
         isLoading = true

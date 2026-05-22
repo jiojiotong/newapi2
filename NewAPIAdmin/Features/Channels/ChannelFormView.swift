@@ -11,7 +11,6 @@ struct ChannelFormView: View {
     @State private var key = ""
     @State private var baseURL = ""
     @State private var models = ""
-    @State private var group = "default"
     @State private var priority = ""
     @State private var weight = ""
     @State private var status = 1
@@ -20,6 +19,8 @@ struct ChannelFormView: View {
     @State private var remark = ""
     @State private var isSaving = false
     @State private var isFetchingModels = false
+    @State private var availableGroups: [String] = []
+    @State private var selectedGroups: Set<String> = ["default"]
 
     var body: some View {
         Form {
@@ -77,8 +78,30 @@ struct ChannelFormView: View {
             }
 
             Section("分组与调度") {
-                TextField("分组（逗号分隔）", text: $group)
-                    .adminPlainTextInput()
+                if availableGroups.isEmpty {
+                    Text("加载分组中...")
+                        .foregroundColor(Color.secondary)
+                } else {
+                    ForEach(availableGroups, id: \.self) { groupName in
+                        Button {
+                            if selectedGroups.contains(groupName) {
+                                selectedGroups.remove(groupName)
+                            } else {
+                                selectedGroups.insert(groupName)
+                            }
+                        } label: {
+                            HStack {
+                                Text(groupName)
+                                    .foregroundColor(Color.primary)
+                                Spacer()
+                                if selectedGroups.contains(groupName) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(Color.accentColor)
+                                }
+                            }
+                        }
+                    }
+                }
                 HStack {
                     Text("优先级")
                     Spacer()
@@ -114,7 +137,10 @@ struct ChannelFormView: View {
             }
         }
         .navigationTitle(editingChannel == nil ? "新增渠道" : "编辑渠道")
-        .onAppear { loadFromChannel() }
+        .task {
+            availableGroups = await viewModel.fetchGroups()
+            loadFromChannel()
+        }
     }
 
     private func loadFromChannel() {
@@ -124,7 +150,10 @@ struct ChannelFormView: View {
         status = channel.status ?? 1
         priority = channel.priority.map { String($0) } ?? ""
         weight = channel.weight.map { String($0) } ?? ""
-        group = channel.group ?? "default"
+
+        // Parse group string into selected set
+        let groupStr = channel.group ?? "default"
+        selectedGroups = Set(groupStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
 
         // Load from raw DynamicObject for fields not in the Channel struct
         if case .string(let v) = channel.raw["key"] { key = v }
@@ -151,7 +180,7 @@ struct ChannelFormView: View {
             "type": .int(type),
             "key": .string(key),
             "models": .string(modelsString),
-            "group": .string(group),
+            "group": .string(selectedGroups.sorted().joined(separator: ",")),
             "status": .int(status)
         ]
 
