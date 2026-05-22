@@ -124,6 +124,7 @@ final class NewAPIClient {
 
         let basePath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let requestPath: String
+        let hasTrailingSlash = path.hasSuffix("/")
         var mergedQueryItems = queryItems
 
         if let pathComponents = URLComponents(string: path), let parsedPath = pathComponents.path.nilIfEmpty {
@@ -133,7 +134,11 @@ final class NewAPIClient {
             requestPath = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         }
 
-        components.path = "/" + [basePath, requestPath].filter { !$0.isEmpty }.joined(separator: "/")
+        var finalPath = "/" + [basePath, requestPath].filter { !$0.isEmpty }.joined(separator: "/")
+        if hasTrailingSlash && !finalPath.hasSuffix("/") {
+            finalPath += "/"
+        }
+        components.path = finalPath
         let existingQueryItems = components.queryItems ?? []
         let allQueryItems = existingQueryItems + mergedQueryItems
         if !allQueryItems.isEmpty {

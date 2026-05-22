@@ -6,7 +6,7 @@ final class NewAPIAdminCoreTests: XCTestCase {
     func testMakeURLPreservesQueryItems() throws {
         let client = NewAPIClient(baseURL: URL(string: "https://example.com/admin")!)
         let url = try client.makeURL("/api/channel/", queryItems: [URLQueryItem(name: "p", value: "1"), URLQueryItem(name: "page_size", value: "50")])
-        XCTAssertEqual(url.absoluteString, "https://example.com/admin/api/channel?p=1&page_size=50")
+        XCTAssertEqual(url.absoluteString, "https://example.com/admin/api/channel/?p=1&page_size=50")
     }
 
     func testOptionParserBuildsDictionary() {
