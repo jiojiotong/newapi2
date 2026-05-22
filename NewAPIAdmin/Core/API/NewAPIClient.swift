@@ -3,12 +3,22 @@ import Foundation
 final class NewAPIClient {
     private let baseURL: URL
     private let session: URLSession
+    private let cookieStorage: HTTPCookieStorage
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
-    init(baseURL: URL, session: URLSession = .shared) {
+    init(baseURL: URL, session: URLSession? = nil, cookieStorage: HTTPCookieStorage = .shared) {
         self.baseURL = baseURL
-        self.session = session
+        self.cookieStorage = cookieStorage
+        if let session {
+            self.session = session
+        } else {
+            let configuration = URLSessionConfiguration.default
+            configuration.httpCookieAcceptPolicy = .always
+            configuration.httpCookieStorage = cookieStorage
+            configuration.httpShouldSetCookies = true
+            self.session = URLSession(configuration: configuration)
+        }
         self.decoder = JSONDecoder()
         self.encoder = JSONEncoder()
     }
@@ -39,6 +49,9 @@ final class NewAPIClient {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        if let cookieHeader = cookieStorage.cookies(for: baseURL)?.cookieHeader, !cookieHeader.isEmpty {
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
 
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -50,6 +63,7 @@ final class NewAPIClient {
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw NewAPIError.invalidResponse
             }
+            storeCookies(from: httpResponse)
 
             switch httpResponse.statusCode {
             case 401:
@@ -118,6 +132,16 @@ final class NewAPIClient {
         }
         return url
     }
+
+    private func storeCookies(from response: HTTPURLResponse) {
+        guard let url = response.url else { return }
+        let headerFields = response.allHeaderFields.reduce(into: [String: String]()) { fields, item in
+            guard let key = item.key as? String, let value = item.value as? String else { return }
+            fields[key] = value
+        }
+        let cookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields, for: url)
+        cookies.forEach { cookieStorage.setCookie($0) }
+    }
 }
 
 private struct EmptyRequest: Encodable {}
@@ -125,5 +149,11 @@ private struct EmptyRequest: Encodable {}
 private extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
+    }
+}
+
+private extension Array where Element == HTTPCookie {
+    var cookieHeader: String {
+        map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
     }
 }
