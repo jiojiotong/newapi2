@@ -17,9 +17,9 @@ struct RedemptionsView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(item.key.isEmpty ? (item.name ?? "兑换码") : item.key).font(Font.headline)
-                                Text("额度 \(item.quota.map(String.init) ?? "-") · 数量 \(item.count.map(String.init) ?? "-") · 已用 \(item.usedCount.map(String.init) ?? "-")")
+                                Text("额度 \(item.quota.map { String($0) } ?? "-") · 数量 \(item.count.map { String($0) } ?? "-") · 已用 \(item.usedCount.map { String($0) } ?? "-")")
                                     .font(Font.caption).foregroundColor(Color.secondary)
-                                Text("状态 \(item.status.map(String.init) ?? "-") · 过期 \(item.expiredTime.map(String.init) ?? "-")")
+                                Text("状态 \(item.status.map { String($0) } ?? "-") · 过期 \(item.expiredTime.map { String($0) } ?? "-")")
                                     .font(Font.caption).foregroundColor(Color.secondary)
                             }
                         }
@@ -89,8 +89,8 @@ private struct RedemptionDetailView: View {
     private var displayed: RedemptionCode { detail ?? item }
     private var title: String { displayed.key.isEmpty ? "兑换码" : displayed.key }
     private var nameText: String { displayed.name ?? "-" }
-    private var quotaText: String { displayed.quota.map(String.init) ?? "-" }
-    private var countText: String { displayed.count.map(String.init) ?? "-" }
+    private var quotaText: String { displayed.quota.map { String($0) } ?? "-" }
+    private var countText: String { displayed.count.map { String($0) } ?? "-" }
 
     var body: some View {
         content

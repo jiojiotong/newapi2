@@ -18,7 +18,7 @@ struct UsersView: View {
                                 Text(item.username).font(Font.headline)
                                 Text("显示名 \(item.displayName ?? "-") · 分组 \(item.group ?? "-")")
                                     .font(Font.caption).foregroundColor(Color.secondary)
-                                Text("额度 \(item.quota.map(String.init) ?? "-") · 状态 \(item.status.map(String.init) ?? "-") · 角色 \(item.role.map(String.init) ?? "-")")
+                                Text("额度 \(item.quota.map { String($0) } ?? "-") · 状态 \(item.status.map { String($0) } ?? "-") · 角色 \(item.role.map { String($0) } ?? "-")")
                                     .font(Font.caption).foregroundColor(Color.secondary)
                             }
                         }
@@ -90,8 +90,8 @@ private struct UserDetailView: View {
     private var title: String { displayed.username }
     private var displayNameText: String { displayed.displayName ?? "-" }
     private var groupText: String { displayed.group ?? "-" }
-    private var quotaText: String { displayed.quota.map(String.init) ?? "-" }
-    private var roleText: String { displayed.role.map(String.init) ?? "-" }
+    private var quotaText: String { displayed.quota.map { String($0) } ?? "-" }
+    private var roleText: String { displayed.role.map { String($0) } ?? "-" }
 
     var body: some View {
         content

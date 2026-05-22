@@ -21,10 +21,10 @@ struct ChannelsView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(item.name).font(Font.headline)
-                                Text("类型 \(item.type.map(String.init) ?? "-") · 分组 \(item.group ?? "-") · 状态 \(item.status.map(String.init) ?? "-")")
+                                Text("类型 \(item.type.map { String($0) } ?? "-") · 分组 \(item.group ?? "-") · 状态 \(item.status.map { String($0) } ?? "-")")
                                     .font(Font.caption)
                                     .foregroundColor(Color.secondary)
-                                Text("余额 \(item.balance.map(String.init) ?? "-") · 响应 \(item.responseTime.map(String.init) ?? "-") · 优先级 \(item.priority.map(String.init) ?? "-") · 权重 \(item.weight.map(String.init) ?? "-")")
+                                Text("余额 \(item.balance.map { String($0) } ?? "-") · 响应 \(item.responseTime.map { String($0) } ?? "-") · 优先级 \(item.priority.map { String($0) } ?? "-") · 权重 \(item.weight.map { String($0) } ?? "-")")
                                     .font(Font.caption)
                                     .foregroundColor(Color.secondary)
                             }
@@ -93,8 +93,8 @@ private struct ChannelDetailView: View {
     private var displayed: Channel { detail ?? item }
     private var title: String { displayed.name }
     private var groupText: String { displayed.group ?? "-" }
-    private var statusText: String { displayed.status.map(String.init) ?? "-" }
-    private var balanceText: String { displayed.balance.map(String.init) ?? "-" }
+    private var statusText: String { displayed.status.map { String($0) } ?? "-" }
+    private var balanceText: String { displayed.balance.map { String($0) } ?? "-" }
 
     var body: some View {
         content
