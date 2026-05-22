@@ -433,7 +433,8 @@ final class PricingViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             options = try await service.fetchOptions()
-            buildRows()
+            let channelMap = (try? await service.fetchModelChannelMap()) ?? [:]
+            buildRows(channelMap: channelMap)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -505,7 +506,7 @@ final class PricingViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private func buildRows() {
+    private func buildRows(channelMap: [String: [String]] = [:]) {
         let modelRatioMap = parseJSON(options["ModelRatio"])
         let completionRatioMap = parseJSON(options["CompletionRatio"])
         let modelPriceMap = parseJSON(options["ModelPrice"])
@@ -535,7 +536,8 @@ final class PricingViewModel: ObservableObject {
                 createCacheRatio: createCacheRatioMap[name],
                 imageRatio: imageRatioMap[name],
                 audioRatio: audioRatioMap[name],
-                audioCompletionRatio: audioCompletionRatioMap[name]
+                audioCompletionRatio: audioCompletionRatioMap[name],
+                channelNames: channelMap[name] ?? []
             )
         }
 
@@ -634,6 +636,7 @@ struct ModelPricingRow: Identifiable, Equatable {
     var imageRatio: Double?
     var audioRatio: Double?
     var audioCompletionRatio: Double?
+    var channelNames: [String] = []
 }
 
 struct GroupRatioRow: Identifiable, Equatable {

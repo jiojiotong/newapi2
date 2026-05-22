@@ -145,6 +145,12 @@ private struct ModelPricingRowView: View {
             }
             .font(Font.caption)
             .foregroundColor(Color.secondary)
+            if !row.channelNames.isEmpty {
+                Text(row.channelNames.joined(separator: ", "))
+                    .font(Font.caption2)
+                    .foregroundColor(Color.accentColor)
+                    .lineLimit(2)
+            }
         }
         .padding(.vertical, 2)
     }
