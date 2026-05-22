@@ -28,7 +28,7 @@ struct Channel: Codable, Identifiable, Equatable {
     init(from decoder: Decoder) throws {
         let raw = try DynamicObject(from: decoder)
         let container = try decoder.container(keyedBy: DynamicCodingKey.self)
-        id = container.decodeIntIfPresent("id") ?? 0
+        id = container.decodeIntIfPresent("id") ?? Int.random(in: Int.min ..< -1)
         name = container.decodeStringIfPresent("name") ?? "未命名渠道"
         type = container.decodeIntIfPresent("type")
         group = container.decodeStringIfPresent("group", "group_name")
@@ -65,7 +65,7 @@ struct ManagedUser: Codable, Identifiable, Equatable {
     init(from decoder: Decoder) throws {
         let raw = try DynamicObject(from: decoder)
         let container = try decoder.container(keyedBy: DynamicCodingKey.self)
-        id = container.decodeIntIfPresent("id") ?? 0
+        id = container.decodeIntIfPresent("id") ?? Int.random(in: Int.min ..< -1)
         username = container.decodeStringIfPresent("username") ?? "未知用户"
         displayName = container.decodeStringIfPresent("display_name", "displayName")
         group = container.decodeStringIfPresent("group")
@@ -102,7 +102,7 @@ struct RedemptionCode: Codable, Identifiable, Equatable {
     init(from decoder: Decoder) throws {
         let raw = try DynamicObject(from: decoder)
         let container = try decoder.container(keyedBy: DynamicCodingKey.self)
-        id = container.decodeIntIfPresent("id") ?? 0
+        id = container.decodeIntIfPresent("id") ?? Int.random(in: Int.min ..< -1)
         name = container.decodeStringIfPresent("name")
         key = container.decodeStringIfPresent("key", "code") ?? ""
         quota = container.decodeDoubleIfPresent("quota")

@@ -46,7 +46,7 @@ private struct RedemptionsContentView: View {
                         Text(item.key.isEmpty ? (item.name ?? "兑换码") : item.key).font(Font.headline)
                         Text("额度 \(item.quota.map { String($0) } ?? "-") · 数量 \(item.count.map { String($0) } ?? "-") · 已用 \(item.usedCount.map { String($0) } ?? "-")")
                             .font(Font.caption).foregroundColor(Color.secondary)
-                        Text("状态 \(item.status.map { String($0) } ?? "-") · 过期 \(item.expiredTime.map { String($0) } ?? "-")")
+                        Text("状态 \(item.status.map { String($0) } ?? "-") · 过期 \(formatExpiry(item.expiredTime))")
                             .font(Font.caption).foregroundColor(Color.secondary)
                     }
                 }
@@ -86,11 +86,20 @@ private struct RedemptionsContentView: View {
             Button("清理", role: ButtonRole.destructive) { Task { await viewModel.clearInvalid() } }
         }
     }
+
+    private func formatExpiry(_ timestamp: Int?) -> String {
+        guard let ts = timestamp, ts > 0 else { return "永不" }
+        let date = Date(timeIntervalSince1970: Double(ts))
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.string(from: date)
+    }
 }
 
 private struct RedemptionDetailView: View {
     let item: RedemptionCode
     @ObservedObject var viewModel: RedemptionsViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var detail: RedemptionCode?
     @State private var showingEdit = false
     @State private var confirmingDelete = false
@@ -105,6 +114,11 @@ private struct RedemptionDetailView: View {
         content
         .navigationTitle(title)
         .task { detail = await viewModel.detail(id: item.id) }
+        .onChange(of: viewModel.items) { _ in
+            if !viewModel.items.contains(where: { $0.id == item.id }) {
+                dismiss()
+            }
+        }
         .confirmationDialog("确认删除兑换码？", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
         }

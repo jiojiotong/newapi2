@@ -95,6 +95,7 @@ private struct ChannelsContentView: View {
 private struct ChannelDetailView: View {
     let item: Channel
     @ObservedObject var viewModel: ChannelsViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var detail: Channel?
     @State private var showingEdit = false
     @State private var confirmingDelete = false
@@ -109,6 +110,11 @@ private struct ChannelDetailView: View {
         content
         .navigationTitle(title)
         .task { detail = await viewModel.detail(id: item.id) }
+        .onChange(of: viewModel.items) { _ in
+            if !viewModel.items.contains(where: { $0.id == item.id }) {
+                dismiss()
+            }
+        }
         .confirmationDialog("确认删除渠道？", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
         }

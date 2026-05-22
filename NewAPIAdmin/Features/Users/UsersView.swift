@@ -88,6 +88,7 @@ private struct UsersContentView: View {
 private struct UserDetailView: View {
     let item: ManagedUser
     @ObservedObject var viewModel: UsersViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var detail: ManagedUser?
     @State private var showingEdit = false
     @State private var confirmingDelete = false
@@ -106,6 +107,11 @@ private struct UserDetailView: View {
         content
         .navigationTitle(title)
         .task { detail = await viewModel.detail(id: item.id) }
+        .onChange(of: viewModel.items) { _ in
+            if !viewModel.items.contains(where: { $0.id == item.id }) {
+                dismiss()
+            }
+        }
         .confirmationDialog("确认启用用户？", isPresented: $confirmingEnable, titleVisibility: .visible) {
             Button("启用") { Task { await viewModel.manage(displayed, action: "enable") } }
         }

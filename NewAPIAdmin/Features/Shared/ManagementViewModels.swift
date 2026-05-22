@@ -440,6 +440,11 @@ final class PricingViewModel: ObservableObject {
         allModels.formUnion(modelRatioMap.keys)
         allModels.formUnion(completionRatioMap.keys)
         allModels.formUnion(modelPriceMap.keys)
+        allModels.formUnion(cacheRatioMap.keys)
+        allModels.formUnion(createCacheRatioMap.keys)
+        allModels.formUnion(imageRatioMap.keys)
+        allModels.formUnion(audioRatioMap.keys)
+        allModels.formUnion(audioCompletionRatioMap.keys)
 
         modelRows = allModels.sorted().map { name in
             ModelPricingRow(
@@ -471,25 +476,23 @@ final class PricingViewModel: ObservableObject {
 
         for row in modelRows {
             modelRatioMap[row.modelName] = row.modelRatio
-            if row.completionRatio != 0 {
-                completionRatioMap[row.modelName] = row.completionRatio
-            }
+            completionRatioMap[row.modelName] = row.completionRatio
             if let v = row.modelPrice, v > 0 {
                 modelPriceMap[row.modelName] = v
             }
-            if let v = row.cacheRatio, v > 0 {
+            if let v = row.cacheRatio {
                 cacheRatioMap[row.modelName] = v
             }
-            if let v = row.createCacheRatio, v > 0 {
+            if let v = row.createCacheRatio {
                 createCacheRatioMap[row.modelName] = v
             }
-            if let v = row.imageRatio, v > 0 {
+            if let v = row.imageRatio {
                 imageRatioMap[row.modelName] = v
             }
-            if let v = row.audioRatio, v > 0 {
+            if let v = row.audioRatio {
                 audioRatioMap[row.modelName] = v
             }
-            if let v = row.audioCompletionRatio, v > 0 {
+            if let v = row.audioCompletionRatio {
                 audioCompletionRatioMap[row.modelName] = v
             }
         }
