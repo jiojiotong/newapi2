@@ -136,8 +136,10 @@ private struct ModelPricingRowView: View {
                 if let price = row.modelPrice, price > 0 {
                     Label("固定 \(formatNumber(price))", systemImage: "dollarsign.circle")
                 } else {
-                    Label("输入 \(formatNumber(row.modelRatio))", systemImage: "arrow.right")
-                    Label("输出 \(formatNumber(row.completionRatio))", systemImage: "arrow.left")
+                    let inputDisplay = row.modelRatio * 2
+                    let outputDisplay = row.modelRatio * 2 * row.completionRatio
+                    Label("输入 \(formatNumber(inputDisplay))", systemImage: "arrow.right")
+                    Label("输出 \(formatNumber(outputDisplay))", systemImage: "arrow.left")
                 }
             }
             .font(Font.caption)
