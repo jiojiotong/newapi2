@@ -14,6 +14,8 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: NewAPIAdmin
+    dependencies:
+      - sdk: Security.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.newapiadmin
