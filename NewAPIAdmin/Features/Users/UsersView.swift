@@ -3,58 +3,11 @@ import SwiftUI
 struct UsersView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @StateObject private var holder = Holder()
-    @State private var showingCreate = false
 
     var body: some View {
         Group {
             if let viewModel = holder.viewModel {
-                List {
-                    if let error = viewModel.errorMessage { Section { Text(error).foregroundColor(Color.red) } }
-                    ForEach(viewModel.items) { item in
-                        NavigationLink {
-                            UserDetailView(item: item, viewModel: viewModel)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(item.username).font(Font.headline)
-                                Text("显示名 \(item.displayName ?? "-") · 分组 \(item.group ?? "-")")
-                                    .font(Font.caption).foregroundColor(Color.secondary)
-                                Text("额度 \(item.quota.map { String($0) } ?? "-") · 状态 \(item.status.map { String($0) } ?? "-") · 角色 \(item.role.map { String($0) } ?? "-")")
-                                    .font(Font.caption).foregroundColor(Color.secondary)
-                            }
-                        }
-                    }
-                    Section {
-                        LabeledContent("当前页", value: String(viewModel.currentPage))
-                        if let total = viewModel.total {
-                            LabeledContent("总数", value: String(total))
-                        }
-                        HStack {
-                            Button("上一页") { Task { await viewModel.previousPage() } }
-                                .disabled(!viewModel.canGoPrevious || viewModel.isLoading)
-                            Spacer()
-                            Button("下一页") { Task { await viewModel.nextPage() } }
-                                .disabled(!viewModel.canGoNext || viewModel.isLoading)
-                        }
-                    }
-                }
-                .searchable(text: $holder.searchText, prompt: "搜索用户")
-                .onSubmit(of: .search) {
-                    viewModel.searchText = holder.searchText
-                    Task { await viewModel.search() }
-                }
-                .overlay {
-                    if viewModel.isLoading { LoadingStateView(title: "加载用户") }
-                    else if viewModel.items.isEmpty { EmptyStateView(title: "没有用户", message: "创建用户或调整搜索条件。") }
-                }
-                .toolbar {
-                    Button("新增") { showingCreate = true }
-                    Button("刷新") { Task { await viewModel.load() } }
-                }
-                .navigationDestination(isPresented: $showingCreate) {
-                    DynamicObjectFormView(title: "新增用户", initialValues: ["username": .string(""), "password": .string(""), "group": .string("default")]) { payload in
-                        await viewModel.create(payload)
-                    }
-                }
+                UsersContentView(viewModel: viewModel, holder: holder)
             } else {
                 LoadingStateView(title: "准备用户管理")
             }
@@ -70,9 +23,65 @@ struct UsersView: View {
         Task { await viewModel.load() }
     }
 
-    @MainActor private final class Holder: ObservableObject {
+    @MainActor final class Holder: ObservableObject {
         @Published var viewModel: UsersViewModel?
         @Published var searchText = ""
+    }
+}
+
+private struct UsersContentView: View {
+    @ObservedObject var viewModel: UsersViewModel
+    @ObservedObject var holder: UsersView.Holder
+    @State private var showingCreate = false
+
+    var body: some View {
+        List {
+            if let error = viewModel.errorMessage { Section { Text(error).foregroundColor(Color.red) } }
+            ForEach(viewModel.items) { item in
+                NavigationLink {
+                    UserDetailView(item: item, viewModel: viewModel)
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.username).font(Font.headline)
+                        Text("显示名 \(item.displayName ?? "-") · 分组 \(item.group ?? "-")")
+                            .font(Font.caption).foregroundColor(Color.secondary)
+                        Text("额度 \(item.quota.map { String($0) } ?? "-") · 状态 \(item.status.map { String($0) } ?? "-") · 角色 \(item.role.map { String($0) } ?? "-")")
+                            .font(Font.caption).foregroundColor(Color.secondary)
+                    }
+                }
+            }
+            Section {
+                LabeledContent("当前页", value: String(viewModel.currentPage))
+                if let total = viewModel.total {
+                    LabeledContent("总数", value: String(total))
+                }
+                HStack {
+                    Button("上一页") { Task { await viewModel.previousPage() } }
+                        .disabled(!viewModel.canGoPrevious || viewModel.isLoading)
+                    Spacer()
+                    Button("下一页") { Task { await viewModel.nextPage() } }
+                        .disabled(!viewModel.canGoNext || viewModel.isLoading)
+                }
+            }
+        }
+        .searchable(text: $holder.searchText, prompt: "搜索用户")
+        .onSubmit(of: .search) {
+            viewModel.searchText = holder.searchText
+            Task { await viewModel.search() }
+        }
+        .overlay {
+            if viewModel.isLoading { LoadingStateView(title: "加载用户") }
+            else if viewModel.items.isEmpty { EmptyStateView(title: "没有用户", message: "创建用户或调整搜索条件。") }
+        }
+        .toolbar {
+            Button("新增") { showingCreate = true }
+            Button("刷新") { Task { await viewModel.load() } }
+        }
+        .navigationDestination(isPresented: $showingCreate) {
+            DynamicObjectFormView(title: "新增用户", initialValues: ["username": .string(""), "password": .string(""), "group": .string("default")]) { payload in
+                await viewModel.create(payload)
+            }
+        }
     }
 }
 

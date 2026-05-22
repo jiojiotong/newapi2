@@ -3,37 +3,67 @@ import SwiftUI
 struct RedemptionsView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @StateObject private var holder = Holder()
-    @State private var showingCreate = false
-    @State private var confirmingClearInvalid = false
 
     var body: some View {
-        content
-            .navigationTitle("兑换码")
-            .task { setupAndLoad() }
-    }
-
-    @ViewBuilder
-    private var content: some View {
         Group {
             if let viewModel = holder.viewModel {
-                redemptionList(viewModel: viewModel)
+                RedemptionsContentView(viewModel: viewModel, holder: holder)
             } else {
                 LoadingStateView(title: "准备兑换码管理")
             }
         }
+        .navigationTitle("兑换码")
+        .task { setupAndLoad() }
     }
 
-    private func redemptionList(viewModel: RedemptionsViewModel) -> some View {
+    private func setupAndLoad() {
+        guard holder.viewModel == nil, let client = try? sessionStore.activeClient() else { return }
+        let viewModel = RedemptionsViewModel(service: RedemptionService(client: client))
+        holder.viewModel = viewModel
+        Task { await viewModel.load() }
+    }
+
+    @MainActor final class Holder: ObservableObject {
+        @Published var viewModel: RedemptionsViewModel?
+        @Published var searchText = ""
+    }
+}
+
+private struct RedemptionsContentView: View {
+    @ObservedObject var viewModel: RedemptionsViewModel
+    @ObservedObject var holder: RedemptionsView.Holder
+    @State private var showingCreate = false
+    @State private var confirmingClearInvalid = false
+
+    var body: some View {
         List {
             if let error = viewModel.errorMessage { Section { Text(error).foregroundColor(Color.red) } }
             ForEach(viewModel.items) { item in
                 NavigationLink {
                     RedemptionDetailView(item: item, viewModel: viewModel)
                 } label: {
-                    redemptionRow(item)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.key.isEmpty ? (item.name ?? "兑换码") : item.key).font(Font.headline)
+                        Text("额度 \(item.quota.map { String($0) } ?? "-") · 数量 \(item.count.map { String($0) } ?? "-") · 已用 \(item.usedCount.map { String($0) } ?? "-")")
+                            .font(Font.caption).foregroundColor(Color.secondary)
+                        Text("状态 \(item.status.map { String($0) } ?? "-") · 过期 \(item.expiredTime.map { String($0) } ?? "-")")
+                            .font(Font.caption).foregroundColor(Color.secondary)
+                    }
                 }
             }
-            paginationSection(viewModel: viewModel)
+            Section {
+                LabeledContent("当前页", value: String(viewModel.currentPage))
+                if let total = viewModel.total {
+                    LabeledContent("总数", value: String(total))
+                }
+                HStack {
+                    Button("上一页") { Task { await viewModel.previousPage() } }
+                        .disabled(!viewModel.canGoPrevious || viewModel.isLoading)
+                    Spacer()
+                    Button("下一页") { Task { await viewModel.nextPage() } }
+                        .disabled(!viewModel.canGoNext || viewModel.isLoading)
+                }
+            }
         }
         .searchable(text: $holder.searchText, prompt: "搜索兑换码")
         .onSubmit(of: .search) {
@@ -55,44 +85,6 @@ struct RedemptionsView: View {
         .confirmationDialog("确认清理失效兑换码？", isPresented: $confirmingClearInvalid, titleVisibility: .visible) {
             Button("清理", role: ButtonRole.destructive) { Task { await viewModel.clearInvalid() } }
         }
-    }
-
-    private func redemptionRow(_ item: RedemptionCode) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(item.key.isEmpty ? (item.name ?? "兑换码") : item.key).font(Font.headline)
-            Text("额度 \(item.quota.map { String($0) } ?? "-") · 数量 \(item.count.map { String($0) } ?? "-") · 已用 \(item.usedCount.map { String($0) } ?? "-")")
-                .font(Font.caption).foregroundColor(Color.secondary)
-            Text("状态 \(item.status.map { String($0) } ?? "-") · 过期 \(item.expiredTime.map { String($0) } ?? "-")")
-                .font(Font.caption).foregroundColor(Color.secondary)
-        }
-    }
-
-    private func paginationSection(viewModel: RedemptionsViewModel) -> some View {
-        Section {
-            LabeledContent("当前页", value: String(viewModel.currentPage))
-            if let total = viewModel.total {
-                LabeledContent("总数", value: String(total))
-            }
-            HStack {
-                Button("上一页") { Task { await viewModel.previousPage() } }
-                    .disabled(!viewModel.canGoPrevious || viewModel.isLoading)
-                Spacer()
-                Button("下一页") { Task { await viewModel.nextPage() } }
-                    .disabled(!viewModel.canGoNext || viewModel.isLoading)
-            }
-        }
-    }
-
-    private func setupAndLoad() {
-        guard holder.viewModel == nil, let client = try? sessionStore.activeClient() else { return }
-        let viewModel = RedemptionsViewModel(service: RedemptionService(client: client))
-        holder.viewModel = viewModel
-        Task { await viewModel.load() }
-    }
-
-    @MainActor private final class Holder: ObservableObject {
-        @Published var viewModel: RedemptionsViewModel?
-        @Published var searchText = ""
     }
 }
 
