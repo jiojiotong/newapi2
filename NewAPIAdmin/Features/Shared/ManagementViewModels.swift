@@ -449,17 +449,24 @@ final class PricingViewModel: ObservableObject {
             let payload = buildPayload()
             try await service.batchUpdate(payload)
             options.merge(payload) { _, new in new }
+            successMessage = "已保存"
         } catch {
-            errorMessage = "模型定价保存失败：\(error.localizedDescription)"
-            return
+            errorMessage = "保存失败：\(error.localizedDescription)"
         }
+    }
+
+    func saveGroupRatio() async {
+        errorMessage = nil
+        successMessage = nil
+        isLoading = true
+        defer { isLoading = false }
         do {
             let groupJSON = buildGroupRatioJSON()
             try await service.update(key: "GroupRatio", value: groupJSON)
             options["GroupRatio"] = groupJSON
-            successMessage = "已保存"
+            successMessage = "分组倍率已保存"
         } catch {
-            errorMessage = "模型定价已保存，但分组倍率保存失败：\(error.localizedDescription)"
+            errorMessage = "分组倍率保存失败：\(error.localizedDescription)"
         }
     }
 

@@ -58,7 +58,7 @@ private struct PricingContentView: View {
             if viewModel.isLoading { LoadingStateView(title: "加载定价配置") }
         }
         .toolbar {
-            Button("保存") { Task { await viewModel.saveAll() } }
+            Button("保存分组倍率") { Task { await viewModel.saveGroupRatio() } }
                 .disabled(viewModel.isLoading)
             Button("刷新") { Task { await viewModel.load() } }
                 .disabled(viewModel.isLoading)
@@ -177,6 +177,8 @@ private struct ModelPricingEditView: View {
     @State private var imageRatio = ""
     @State private var audioRatio = ""
     @State private var audioCompletionRatio = ""
+    @State private var isSaving = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Form {
@@ -227,9 +229,10 @@ private struct ModelPricingEditView: View {
             }
 
             Section {
-                Button("应用修改") {
-                    applyChanges()
+                Button("保存到服务器") {
+                    Task { await saveToServer() }
                 }
+                .disabled(isSaving)
             }
         }
         .navigationTitle(modelName)
@@ -251,13 +254,17 @@ private struct ModelPricingEditView: View {
         audioCompletionRatio = formatOptional(row?.audioCompletionRatio)
     }
 
-    private func applyChanges() {
+    private func saveToServer() async {
+        isSaving = true
+        defer { isSaving = false }
+
         // Convert display values back to raw ratios
         let inputPrice = Double(modelRatio) ?? 2
         let outputPrice = Double(completionRatio) ?? inputPrice
         let rawModelRatio = inputPrice / 2
         let rawCompletionRatio = inputPrice > 0 ? outputPrice / inputPrice : 1
 
+        // Update local state
         viewModel.updateModel(
             modelName,
             modelRatio: rawModelRatio,
@@ -269,6 +276,12 @@ private struct ModelPricingEditView: View {
             audioRatio: Double(audioRatio),
             audioCompletionRatio: Double(audioCompletionRatio)
         )
+
+        // Save to server immediately
+        await viewModel.saveAll()
+        if viewModel.errorMessage == nil {
+            dismiss()
+        }
     }
 
     private func formatOptional(_ value: Double?) -> String {
