@@ -41,34 +41,18 @@ private struct DashboardContentView: View {
 
     var body: some View {
         List {
-            Section("服务器") {
-                LabeledContent("地址", value: sessionStore.profile?.baseURL.absoluteString ?? "-")
-                LabeledContent("管理员", value: sessionStore.adminUser?.username ?? "-")
-                LabeledContent("角色", value: roleText)
-                LabeledContent("连接", value: viewModel.statusText)
-            }
-
             Section("统计") {
+                LabeledContent("连接状态", value: viewModel.statusText)
                 LabeledContent("渠道数量", value: viewModel.channelCountText)
                 LabeledContent("用户数量", value: viewModel.userCountText)
                 LabeledContent("兑换码数量", value: viewModel.redemptionCountText)
             }
 
             Section("管理") {
-                NavigationLink("数据看板") {
-                    StatisticsView()
-                }
                 NavigationLink("模型定价") {
                     PricingView()
                 }
             }
         }
-    }
-
-    private var roleText: String {
-        guard let role = sessionStore.adminUser?.role else {
-            return "-"
-        }
-        return role >= 100 ? "Root" : "Admin"
     }
 }

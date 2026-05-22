@@ -64,4 +64,26 @@ final class StatisticsService {
         }
         return try await client.get("/api/data/", queryItems: queryItems)
     }
+
+    /// Get model pricing options
+    func fetchPricingOptions() async throws -> [String: String] {
+        let options: [OptionItem] = try await client.get("/api/option/")
+        return OptionParser.dictionary(from: options)
+    }
+
+    /// Get model count and channel map
+    func fetchModelChannelMap() async throws -> [String: [String]] {
+        let response: PaginatedResponse<ModelMeta> = try await client.get("/api/models/", queryItems: [
+            URLQueryItem(name: "p", value: "1"),
+            URLQueryItem(name: "page_size", value: "1000")
+        ])
+        var result: [String: [String]] = [:]
+        for model in response.items {
+            let channelNames = model.boundChannels.map { $0.name }
+            if !channelNames.isEmpty {
+                result[model.modelName] = channelNames
+            }
+        }
+        return result
+    }
 }

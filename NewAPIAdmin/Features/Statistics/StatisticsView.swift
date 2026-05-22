@@ -53,6 +53,7 @@ private struct StatisticsContentView: View {
             Section("资源") {
                 StatCard(title: "用户数量", value: viewModel.userCountText, icon: "person.2")
                 StatCard(title: "渠道数量", value: viewModel.channelCountText, icon: "antenna.radiowaves.left.and.right")
+                StatCard(title: "模型数量", value: viewModel.modelCountText, icon: "cpu")
             }
 
             if !viewModel.topModels.isEmpty {
@@ -74,6 +75,35 @@ private struct StatisticsContentView: View {
                     }
                 }
             }
+
+            if !viewModel.modelPricingList.isEmpty {
+                Section("模型定价一览") {
+                    ForEach(viewModel.modelPricingList) { item in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.modelName)
+                                .font(Font.subheadline)
+                                .lineLimit(1)
+                            HStack(spacing: 12) {
+                                if item.isFixedPrice {
+                                    Text("固定 \(formatPrice(item.inputPrice))/次")
+                                } else {
+                                    Text("输入 \(formatPrice(item.inputPrice))")
+                                    Text("输出 \(formatPrice(item.outputPrice))")
+                                }
+                            }
+                            .font(Font.caption)
+                            .foregroundColor(Color.secondary)
+                            if !item.channelNames.isEmpty {
+                                Text(item.channelNames.joined(separator: ", "))
+                                    .font(Font.caption2)
+                                    .foregroundColor(Color.accentColor)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
         }
         .overlay {
             if viewModel.isLoading { LoadingStateView(title: "加载统计数据") }
@@ -81,6 +111,13 @@ private struct StatisticsContentView: View {
         .toolbar {
             Button("刷新") { Task { await viewModel.load() } }
         }
+    }
+
+    private func formatPrice(_ value: Double) -> String {
+        if value == value.rounded() && value < 10000 {
+            return String(Int(value))
+        }
+        return String(format: "%.4g", value)
     }
 
     private func formatNumber(_ value: Int) -> String {
@@ -132,7 +169,9 @@ final class StatisticsViewModel: ObservableObject {
     @Published var tpmText = "-"
     @Published var userCountText = "-"
     @Published var channelCountText = "-"
+    @Published var modelCountText = "-"
     @Published var topModels: [ModelUsage] = []
+    @Published var modelPricingList: [ModelPricingInfo] = []
 
     private let service: StatisticsService
 
@@ -148,6 +187,7 @@ final class StatisticsViewModel: ObservableObject {
         await loadLogStat()
         await loadCounts()
         await loadQuotaData()
+        await loadModelPricing()
     }
 
     private func loadLogStat() async {
@@ -175,6 +215,47 @@ final class StatisticsViewModel: ObservableObject {
         } catch {
             channelCountText = "加载失败"
         }
+    }
+
+    private func loadModelPricing() async {
+        do {
+            let options = try await service.fetchPricingOptions()
+            let channelMap = (try? await service.fetchModelChannelMap()) ?? [:]
+
+            let modelRatioMap = parseJSONMap(options["ModelRatio"])
+            let completionRatioMap = parseJSONMap(options["CompletionRatio"])
+            let modelPriceMap = parseJSONMap(options["ModelPrice"])
+
+            var allModels = Set<String>()
+            allModels.formUnion(modelRatioMap.keys)
+            allModels.formUnion(modelPriceMap.keys)
+
+            modelCountText = String(allModels.count)
+
+            modelPricingList = allModels.sorted().map { name in
+                let mr = modelRatioMap[name] ?? 1
+                let cr = completionRatioMap[name] ?? 1
+                let mp = modelPriceMap[name]
+                let channels = channelMap[name] ?? []
+                if let fixedPrice = mp, fixedPrice > 0 {
+                    return ModelPricingInfo(modelName: name, inputPrice: fixedPrice, outputPrice: fixedPrice, isFixedPrice: true, channelNames: channels)
+                }
+                return ModelPricingInfo(modelName: name, inputPrice: mr * 2, outputPrice: mr * 2 * cr, isFixedPrice: false, channelNames: channels)
+            }
+        } catch {
+            modelCountText = "加载失败"
+        }
+    }
+
+    private func parseJSONMap(_ jsonString: String?) -> [String: Double] {
+        guard let str = jsonString, let data = str.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+        var result: [String: Double] = [:]
+        for (key, value) in obj {
+            if let num = value as? Double { result[key] = num }
+            else if let num = value as? Int { result[key] = Double(num) }
+        }
+        return result
     }
 
     private func loadQuotaData() async {
@@ -237,4 +318,13 @@ struct ModelUsage: Identifiable {
     let modelName: String
     let totalTokens: Int
     let requestCount: Int
+}
+
+struct ModelPricingInfo: Identifiable {
+    var id: String { modelName }
+    let modelName: String
+    let inputPrice: Double
+    let outputPrice: Double
+    let isFixedPrice: Bool
+    let channelNames: [String]
 }

@@ -5,14 +5,24 @@ struct SettingsView: View {
     @State private var confirmingClearData = false
     @State private var confirmingLogout = false
 
+    private var roleText: String {
+        guard let role = sessionStore.adminUser?.role else { return "-" }
+        switch role {
+        case 100: return "Root"
+        case 10: return "管理员"
+        default: return "普通用户"
+        }
+    }
+
     var body: some View {
         List {
-            Section("当前服务器") {
+            Section("服务器信息") {
                 LabeledContent("地址", value: sessionStore.profile?.baseURL.absoluteString ?? "-")
                 LabeledContent("账号", value: sessionStore.adminUser?.username ?? "-")
+                LabeledContent("角色", value: roleText)
             }
 
-            Section {
+            Section("操作") {
                 Button("重新验证会话") {
                     Task { await sessionStore.revalidateSession() }
                 }
