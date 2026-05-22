@@ -20,8 +20,8 @@ struct RedemptionCreateView: View {
             Section("创建") {
                 TextField("名称（必填，1-20字符）", text: $nameText)
                     .adminPlainTextInput()
-                TextField("额度", text: $quotaText)
-                    .adminDecimalKeyboard()
+                TextField("额度（整数）", text: $quotaText)
+                    .adminNumberKeyboard()
                 TextField("数量", text: $countText)
                     .adminNumberKeyboard()
                 TextField("过期时间戳，可选", text: $expiryText)
@@ -46,8 +46,8 @@ struct RedemptionCreateView: View {
             localError = "名称不能为空且不超过20个字符"
             return
         }
-        guard let quota = Double(quotaText), let count = Int(countText) else {
-            localError = "额度和数量格式无效"
+        guard let quota = Int(quotaText), let count = Int(countText) else {
+            localError = "额度和数量必须是整数"
             return
         }
         let expiry = expiryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : Int(expiryText)
@@ -62,7 +62,7 @@ struct RedemptionCreateView: View {
             return
         }
 
-        await viewModel.createValidated(name: name, quota: Int(quota), count: count, expiredTime: expiry, usageLimit: usageLimit)
+        await viewModel.createValidated(name: name, quota: quota, count: count, expiredTime: expiry, usageLimit: usageLimit)
         if viewModel.errorMessage == nil {
             dismiss()
         }

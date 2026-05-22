@@ -33,6 +33,6 @@ enum FormValidation {
 
 enum OptionParser {
     static func dictionary(from options: [OptionItem]) -> [String: String] {
-        Dictionary(uniqueKeysWithValues: options.map { ($0.key, $0.value) })
+        Dictionary(options.map { ($0.key, $0.value) }, uniquingKeysWith: { _, last in last })
     }
 }

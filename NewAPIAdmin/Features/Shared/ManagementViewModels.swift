@@ -368,14 +368,18 @@ final class PricingViewModel: ObservableObject {
         do {
             let payload = buildPayload()
             try await service.batchUpdate(payload)
-            // Save GroupRatio separately (not in batch keys)
+            options.merge(payload) { _, new in new }
+        } catch {
+            errorMessage = "模型定价保存失败：\(error.localizedDescription)"
+            return
+        }
+        do {
             let groupJSON = buildGroupRatioJSON()
             try await service.update(key: "GroupRatio", value: groupJSON)
-            options.merge(payload) { _, new in new }
             options["GroupRatio"] = groupJSON
             successMessage = "已保存"
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "模型定价已保存，但分组倍率保存失败：\(error.localizedDescription)"
         }
     }
 
