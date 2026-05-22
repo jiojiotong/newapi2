@@ -1,6 +1,6 @@
 import Foundation
 
-struct AdminUser: Codable, Equatable, Decodable, Identifiable {
+struct AdminUser: Codable, Equatable, Identifiable {
     let id: Int
     let username: String
     let displayName: String?
