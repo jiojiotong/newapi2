@@ -37,6 +37,7 @@ private struct UsersContentView: View {
     var body: some View {
         List {
             if let error = viewModel.errorMessage { Section { Text(error).foregroundColor(Color.red) } }
+            if let success = viewModel.successMessage { Section { Text(success).foregroundColor(Color.green) } }
             ForEach(viewModel.items) { item in
                 NavigationLink {
                     UserDetailView(item: item, viewModel: viewModel)
@@ -82,7 +83,12 @@ private struct UsersContentView: View {
         .toolbar {
             Button("新增") { showingCreate = true }
                 .disabled(viewModel.isLoading)
-            Button("刷新") { Task { await viewModel.load() } }
+            Button("刷新") {
+                Task {
+                    await viewModel.load()
+                    if viewModel.errorMessage == nil { viewModel.successMessage = "刷新成功" }
+                }
+            }
                 .disabled(viewModel.isLoading)
         }
         .navigationDestination(isPresented: $showingCreate) {

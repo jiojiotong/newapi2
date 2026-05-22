@@ -7,6 +7,7 @@ final class ChannelsViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var successMessage: String?
     @Published var serverMessage: String?
     @Published var currentPage = 1
     @Published var total: Int?
@@ -175,6 +176,7 @@ final class ChannelsViewModel: ObservableObject {
 
     private func perform(_ operation: () async throws -> Void) async {
         errorMessage = nil
+        successMessage = nil
         isLoading = true
         defer { isLoading = false }
         do {
@@ -191,6 +193,7 @@ final class UsersViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var successMessage: String?
     @Published var currentPage = 1
     @Published var total: Int?
 
@@ -295,6 +298,7 @@ final class RedemptionsViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var successMessage: String?
     @Published var currentPage = 1
     @Published var total: Int?
 

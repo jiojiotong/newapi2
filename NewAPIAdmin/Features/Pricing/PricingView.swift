@@ -60,7 +60,12 @@ private struct PricingContentView: View {
         .toolbar {
             Button("保存分组倍率") { Task { await viewModel.saveGroupRatio() } }
                 .disabled(viewModel.isLoading)
-            Button("刷新") { Task { await viewModel.load() } }
+            Button("刷新") {
+                Task {
+                    await viewModel.load()
+                    if viewModel.errorMessage == nil { viewModel.successMessage = "刷新成功" }
+                }
+            }
                 .disabled(viewModel.isLoading)
         }
     }

@@ -39,6 +39,9 @@ private struct ChannelsContentView: View {
             if let error = viewModel.errorMessage {
                 Section { Text(error).foregroundColor(Color.red) }
             }
+            if let success = viewModel.successMessage {
+                Section { Text(success).foregroundColor(Color.green) }
+            }
             if let message = viewModel.serverMessage {
                 Section("服务器消息") { Text(message) }
             }
@@ -89,7 +92,12 @@ private struct ChannelsContentView: View {
         .toolbar {
             Button("新增") { showingCreate = true }
                 .disabled(viewModel.isLoading)
-            Button("刷新") { Task { await viewModel.load() } }
+            Button("刷新") {
+                Task {
+                    await viewModel.load()
+                    if viewModel.errorMessage == nil { viewModel.successMessage = "刷新成功" }
+                }
+            }
                 .disabled(viewModel.isLoading)
         }
         .navigationDestination(isPresented: $showingCreate) {
