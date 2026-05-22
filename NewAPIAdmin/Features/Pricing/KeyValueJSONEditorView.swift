@@ -15,7 +15,7 @@ struct KeyValueJSONEditorView: View {
                 HStack {
                     TextField("Key", text: $row.key)
                     TextField("Value", text: $row.value)
-                        .keyboardType(.decimalPad)
+                        .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
                 }
             }

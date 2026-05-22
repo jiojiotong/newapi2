@@ -22,7 +22,16 @@ jobs:
         run: swift --version
 
       - name: Build
-        run: swift build -v
+        run: swift build -v 2>&1 | tee build.log
 
       - name: Test
-        run: swift test
+        run: swift test 2>&1 | tee test.log
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swift-logs
+          path: |
+            build.log
+            test.log

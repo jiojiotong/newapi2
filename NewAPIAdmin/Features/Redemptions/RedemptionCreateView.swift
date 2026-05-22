@@ -18,13 +18,13 @@ struct RedemptionCreateView: View {
 
             Section("创建") {
                 TextField("额度", text: $quotaText)
-                    .keyboardType(.decimalPad)
+                    .adminDecimalKeyboard()
                 TextField("数量", text: $countText)
-                    .keyboardType(.numberPad)
+                    .adminNumberKeyboard()
                 TextField("过期时间戳，可选", text: $expiryText)
-                    .keyboardType(.numberPad)
+                    .adminNumberKeyboard()
                 TextField("使用次数限制，可选", text: $usageLimitText)
-                    .keyboardType(.numberPad)
+                    .adminNumberKeyboard()
             }
 
             Section {

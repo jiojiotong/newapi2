@@ -13,13 +13,10 @@ struct ServerLoginView: View {
             Form {
                 Section {
                     TextField("服务器地址", text: $serverURL)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                        .autocorrectionDisabled()
+                        .adminURLKeyboard()
 
                     TextField("管理员用户名", text: $username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .adminPlainTextInput()
 
                     SecureField("密码", text: $password)
 
