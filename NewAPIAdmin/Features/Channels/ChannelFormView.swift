@@ -75,9 +75,9 @@ struct ChannelFormView: View {
                         Text("从上游获取模型列表")
                     }
                 }
-                .disabled(key.isEmpty || isFetchingModels)
+                .disabled(isFetchingModels || (editingChannel == nil && key.isEmpty))
                 if editingChannel == nil {
-                    Text("新建渠道获取模型需要 Root 权限")
+                    Text("新建渠道获取模型需要 Root 权限，且需要先填写密钥")
                         .font(Font.caption)
                         .foregroundColor(Color.secondary)
                 }
