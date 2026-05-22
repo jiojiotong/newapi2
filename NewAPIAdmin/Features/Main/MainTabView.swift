@@ -11,6 +11,13 @@ struct MainTabView: View {
             }
 
             NavigationStack {
+                StatisticsView()
+            }
+            .tabItem {
+                Label("数据", systemImage: "chart.bar")
+            }
+
+            NavigationStack {
                 ChannelsView()
             }
             .tabItem {
