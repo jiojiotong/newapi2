@@ -119,6 +119,7 @@ struct ChannelFormView: View {
                         .adminNumberKeyboard()
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
+                        .adminEditableField()
                 }
                 HStack {
                     Text("权重")
@@ -127,6 +128,7 @@ struct ChannelFormView: View {
                         .adminNumberKeyboard()
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
+                        .adminEditableField()
                 }
             }
 
@@ -373,11 +375,13 @@ private struct ChannelModelPriceEditView: View {
                     TextField("输入", text: $inputText)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
                 LabeledContent("输出价格") {
                     TextField("输出", text: $outputText)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
             }
             Section {

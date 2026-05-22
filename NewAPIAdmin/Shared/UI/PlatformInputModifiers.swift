@@ -41,4 +41,13 @@ extension View {
         self
         #endif
     }
+
+    @ViewBuilder
+    func adminEditableField() -> some View {
+        self
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Color(uiColor: .systemGray6))
+            .cornerRadius(8)
+    }
 }

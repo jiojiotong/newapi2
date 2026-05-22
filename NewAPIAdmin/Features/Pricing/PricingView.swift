@@ -192,16 +192,19 @@ private struct ModelPricingEditView: View {
                     TextField("默认 2", text: $modelRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
                 LabeledContent("输出价格") {
                     TextField("默认与输入相同", text: $completionRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
                 LabeledContent("固定价格（$/次）") {
                     TextField("不设置则用 token 计费", text: $modelPrice)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
             }
 
@@ -210,26 +213,31 @@ private struct ModelPricingEditView: View {
                     TextField("不设置", text: $cacheRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
                 LabeledContent("创建缓存倍率") {
                     TextField("不设置", text: $createCacheRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
                 LabeledContent("图片倍率") {
                     TextField("不设置", text: $imageRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
                 LabeledContent("音频输入倍率") {
                     TextField("不设置", text: $audioRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
                 LabeledContent("音频输出倍率") {
                     TextField("不设置", text: $audioCompletionRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
+                        .adminEditableField()
                 }
             }
 
@@ -347,6 +355,7 @@ private struct GroupRatioRowView: View {
     let row: GroupRatioRow
 
     @State private var ratioText: String = ""
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack {
@@ -357,11 +366,19 @@ private struct GroupRatioRowView: View {
                 .adminDecimalKeyboard()
                 .multilineTextAlignment(.trailing)
                 .frame(width: 80)
+                .adminEditableField()
+                .focused($isFocused)
                 .onChange(of: ratioText) { newValue in
                     if let value = Double(newValue) {
                         viewModel.updateGroup(row.groupName, ratio: value)
                     }
                 }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完成") { isFocused = false }
+            }
         }
         .onAppear {
             if row.ratio == row.ratio.rounded() && row.ratio < 100000 {
