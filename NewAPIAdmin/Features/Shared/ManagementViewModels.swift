@@ -68,16 +68,17 @@ final class ChannelsViewModel: ObservableObject {
 
     func test(_ item: Channel) async {
         await perform {
-            let result = try await service.test(id: item.id)
-            serverMessage = String(describing: result.rawValue)
+            try await service.test(id: item.id)
+            serverMessage = "渠道测试成功"
         }
     }
 
     func updateBalance(_ item: Channel) async {
         await perform {
-            let result = try await service.updateBalance(id: item.id)
-            serverMessage = String(describing: result.rawValue)
+            try await service.updateBalance(id: item.id)
+            serverMessage = "余额已更新"
         }
+        await load()
     }
 
     func update(_ payload: DynamicObject) async {
@@ -290,9 +291,9 @@ final class RedemptionsViewModel: ObservableObject {
         await load()
     }
 
-    func createValidated(quota: Double, count: Int, expiredTime: Int?, usageLimit: Int?) async {
+    func createValidated(name: String, quota: Int, count: Int, expiredTime: Int?, usageLimit: Int?) async {
         await perform {
-            try FormValidation.requirePositive(quota, field: "额度")
+            try FormValidation.requirePositiveInt(quota, field: "额度")
             try FormValidation.requirePositiveInt(count, field: "数量")
             if let expiredTime {
                 try FormValidation.requirePositiveInt(expiredTime, field: "过期时间")
@@ -302,7 +303,8 @@ final class RedemptionsViewModel: ObservableObject {
             }
 
             var values: [String: AnyJSONValue] = [
-                "quota": .double(quota),
+                "name": .string(name),
+                "quota": .int(quota),
                 "count": .int(count)
             ]
             if let expiredTime {

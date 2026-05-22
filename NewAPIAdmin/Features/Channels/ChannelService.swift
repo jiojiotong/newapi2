@@ -20,7 +20,8 @@ final class ChannelService {
     }
 
     func create(_ payload: DynamicObject) async throws {
-        let _: EmptyResponseData = try await client.post("/api/channel/", body: payload)
+        let wrapped = AddChannelRequest(mode: "single", channel: payload)
+        let _: EmptyResponseData = try await client.post("/api/channel/", body: wrapped)
     }
 
     func update(_ payload: DynamicObject) async throws {
@@ -31,15 +32,20 @@ final class ChannelService {
         let _: EmptyResponseData = try await client.delete("/api/channel/\(id)")
     }
 
-    func test(id: Int) async throws -> AnyJSONValue {
-        try await client.get("/api/channel/test/\(id)")
+    func test(id: Int) async throws {
+        let _: EmptyResponseData = try await client.get("/api/channel/test/\(id)")
     }
 
-    func updateBalance(id: Int) async throws -> AnyJSONValue {
-        try await client.get("/api/channel/update_balance/\(id)")
+    func updateBalance(id: Int) async throws {
+        let _: EmptyResponseData = try await client.get("/api/channel/update_balance/\(id)")
     }
 
     private func pagination(page: Int, pageSize: Int) -> [URLQueryItem] {
         [URLQueryItem(name: "p", value: String(page)), URLQueryItem(name: "page_size", value: String(pageSize))]
     }
+}
+
+private struct AddChannelRequest: Encodable {
+    let mode: String
+    let channel: DynamicObject
 }
