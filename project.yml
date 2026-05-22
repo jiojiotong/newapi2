@@ -26,6 +26,7 @@ targets:
         CODE_SIGN_IDENTITY: ""
         SWIFT_OPTIMIZATION_LEVEL: "-Onone"
         SWIFT_COMPILATION_MODE: singlefile
+        SWIFT_ENABLE_BATCH_MODE: "NO"
 schemes:
   NewAPIAdmin:
     build:

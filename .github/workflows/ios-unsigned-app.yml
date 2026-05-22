@@ -66,6 +66,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             SWIFT_OPTIMIZATION_LEVEL=-Onone \
             SWIFT_COMPILATION_MODE=singlefile \
+            SWIFT_ENABLE_BATCH_MODE=NO \
             ONLY_ACTIVE_ARCH=NO \
             build 2>&1 | tee xcodebuild.log
           STATUS=${PIPESTATUS[0]}
@@ -73,11 +74,17 @@ jobs:
             {
               echo "## xcodebuild failed"
               echo
+              echo "### Errors"
+              echo '```text'
+              grep -n "error:" xcodebuild.log || true
+              echo '```'
+              echo
+              echo "### Last log lines"
               echo '```text'
               tail -n 120 xcodebuild.log
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
-            tail -n 40 xcodebuild.log | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g' | while IFS= read -r line; do
+            grep -n "error:" xcodebuild.log | tail -n 20 | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g' | while IFS= read -r line; do
               echo "::error::$line"
             done
             exit "$STATUS"

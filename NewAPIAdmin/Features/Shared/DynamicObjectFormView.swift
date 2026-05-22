@@ -39,13 +39,11 @@ struct DynamicObjectFormView: View {
         }
         .navigationTitle(title)
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("保存") {
-                    Task { await saveJSON() }
-                }
+            Button("取消") {
+                dismiss()
             }
-            ToolbarItem(placement: .cancellationAction) {
-                Button("取消") { dismiss() }
+            Button("保存") {
+                Task { await saveJSON() }
             }
         }
     }
