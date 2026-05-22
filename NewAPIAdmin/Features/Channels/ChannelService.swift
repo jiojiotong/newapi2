@@ -45,6 +45,16 @@ final class ChannelService {
         try await client.get("/api/group/")
     }
 
+    /// Fetch global options (for pricing display)
+    func fetchOptions() async throws -> [OptionItem] {
+        try await client.get("/api/option/")
+    }
+
+    /// Batch update options (for pricing save)
+    func batchUpdateOptions(_ options: [OptionUpdateRequest]) async throws {
+        let _: EmptyResponseData = try await client.put("/api/option/batch", body: OptionBatchUpdateRequest(options: options))
+    }
+
     /// Fetch models from upstream for an existing channel
     func fetchModels(channelId: Int) async throws -> [String] {
         try await client.get("/api/channel/fetch_models/\(channelId)")

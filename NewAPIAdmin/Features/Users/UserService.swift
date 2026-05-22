@@ -31,6 +31,14 @@ final class UserService {
         let _: EmptyResponseData = try await client.post("/api/user/manage", body: ManageUserRequest(id: id, action: action))
     }
 
+    func manageQuota(id: Int, value: Int, mode: String) async throws {
+        let _: EmptyResponseData = try await client.post("/api/user/manage", body: ManageUserRequest(id: id, action: "add_quota", value: value, mode: mode))
+    }
+
+    func fetchGroups() async throws -> [String] {
+        try await client.get("/api/group/")
+    }
+
     func delete(id: Int) async throws {
         let _: EmptyResponseData = try await client.delete("/api/user/\(id)")
     }

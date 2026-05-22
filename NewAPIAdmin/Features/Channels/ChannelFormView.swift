@@ -21,6 +21,7 @@ struct ChannelFormView: View {
     @State private var isFetchingModels = false
     @State private var availableGroups: [String] = []
     @State private var selectedGroups: Set<String> = ["default"]
+    @State private var channelModelPricing: [ChannelModelPriceItem] = []
 
     var body: some View {
         Form {
@@ -129,6 +130,41 @@ struct ChannelFormView: View {
                     .adminPlainTextInput()
             }
 
+            if editingChannel != nil {
+                Section(header: Text("模型定价（全局）"), footer: Text("定价为全局设置，修改会影响所有使用同名模型的渠道")) {
+                    if channelModelPricing.isEmpty {
+                        Text("暂无定价信息")
+                            .foregroundColor(Color.secondary)
+                    } else {
+                        ForEach(channelModelPricing, id: \.modelName) { item in
+                            NavigationLink {
+                                ChannelModelPriceEditView(
+                                    modelName: item.modelName,
+                                    inputPrice: item.inputPrice,
+                                    outputPrice: item.outputPrice,
+                                    onSave: { newInput, newOutput in
+                                        updateModelPrice(item.modelName, inputPrice: newInput, outputPrice: newOutput)
+                                    }
+                                )
+                            } label: {
+                                HStack {
+                                    Text(item.modelName)
+                                        .font(Font.subheadline)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text("输入 \(formatPriceValue(item.inputPrice)) / 输出 \(formatPriceValue(item.outputPrice))")
+                                        .font(Font.caption)
+                                        .foregroundColor(Color.secondary)
+                                }
+                            }
+                        }
+                    }
+                    Button("刷新定价") {
+                        Task { await loadChannelPricing() }
+                    }
+                }
+            }
+
             Section {
                 Button(editingChannel == nil ? "创建渠道" : "保存修改") {
                     Task { await save() }
@@ -140,6 +176,9 @@ struct ChannelFormView: View {
         .task {
             availableGroups = await viewModel.fetchGroups()
             loadFromChannel()
+            if editingChannel != nil {
+                await loadChannelPricing()
+            }
         }
     }
 
@@ -230,6 +269,128 @@ struct ChannelFormView: View {
         if let fetched = fetchedModels, !fetched.isEmpty {
             models = fetched.joined(separator: "\n")
         }
+    }
+
+    private func loadChannelPricing() async {
+        // Get current channel's models
+        let channelModels = models
+            .components(separatedBy: CharacterSet.newlines)
+            .flatMap { $0.components(separatedBy: ",") }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        guard !channelModels.isEmpty else {
+            channelModelPricing = []
+            return
+        }
+
+        // Fetch global pricing options
+        do {
+            let options = try await viewModel.fetchPricingOptions()
+            let modelRatioMap = parsePricingJSON(options["ModelRatio"])
+            let completionRatioMap = parsePricingJSON(options["CompletionRatio"])
+            let modelPriceMap = parsePricingJSON(options["ModelPrice"])
+
+            channelModelPricing = channelModels.map { name in
+                let mr = modelRatioMap[name] ?? 1
+                let cr = completionRatioMap[name] ?? 1
+                let mp = modelPriceMap[name]
+                if let fixedPrice = mp, fixedPrice > 0 {
+                    return ChannelModelPriceItem(modelName: name, inputPrice: fixedPrice, outputPrice: fixedPrice, isFixedPrice: true)
+                }
+                return ChannelModelPriceItem(modelName: name, inputPrice: mr * 2, outputPrice: mr * 2 * cr, isFixedPrice: false)
+            }
+        } catch {
+            channelModelPricing = []
+        }
+    }
+
+    private func updateModelPrice(_ modelName: String, inputPrice: Double, outputPrice: Double) {
+        if let index = channelModelPricing.firstIndex(where: { $0.modelName == modelName }) {
+            channelModelPricing[index].inputPrice = inputPrice
+            channelModelPricing[index].outputPrice = outputPrice
+        }
+        // Save to global pricing via viewModel
+        Task {
+            let rawModelRatio = inputPrice / 2
+            let rawCompletionRatio = inputPrice > 0 ? outputPrice / inputPrice : 1
+            await viewModel.updateSingleModelPricing(modelName: modelName, modelRatio: rawModelRatio, completionRatio: rawCompletionRatio)
+        }
+    }
+
+    private func formatPriceValue(_ value: Double) -> String {
+        if value == value.rounded() && value < 10000 {
+            return String(Int(value))
+        }
+        return String(format: "%.4g", value)
+    }
+
+    private func parsePricingJSON(_ jsonString: String?) -> [String: Double] {
+        guard let str = jsonString, let data = str.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        var result: [String: Double] = [:]
+        for (key, value) in obj {
+            if let num = value as? Double { result[key] = num }
+            else if let num = value as? Int { result[key] = Double(num) }
+        }
+        return result
+    }
+}
+
+struct ChannelModelPriceItem {
+    let modelName: String
+    var inputPrice: Double
+    var outputPrice: Double
+    var isFixedPrice: Bool
+}
+
+private struct ChannelModelPriceEditView: View {
+    let modelName: String
+    @State var inputPrice: Double
+    @State var outputPrice: Double
+    let onSave: (Double, Double) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var inputText = ""
+    @State private var outputText = ""
+
+    var body: some View {
+        Form {
+            Section(header: Text("模型定价"), footer: Text("单位：$/1M tokens。修改为全局生效。")) {
+                LabeledContent("输入价格") {
+                    TextField("输入", text: $inputText)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("输出价格") {
+                    TextField("输出", text: $outputText)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+            Section {
+                Button("保存定价") {
+                    let newInput = Double(inputText) ?? inputPrice
+                    let newOutput = Double(outputText) ?? outputPrice
+                    onSave(newInput, newOutput)
+                    dismiss()
+                }
+            }
+        }
+        .navigationTitle(modelName)
+        .onAppear {
+            inputText = formatValue(inputPrice)
+            outputText = formatValue(outputPrice)
+        }
+    }
+
+    private func formatValue(_ value: Double) -> String {
+        if value == value.rounded() && value < 10000 {
+            return String(Int(value))
+        }
+        return String(value)
     }
 }
 

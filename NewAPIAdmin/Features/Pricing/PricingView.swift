@@ -174,19 +174,19 @@ private struct ModelPricingEditView: View {
 
     var body: some View {
         Form {
-            Section("基本定价") {
-                LabeledContent("模型倍率（输入）") {
-                    TextField("默认 1", text: $modelRatio)
+            Section(header: Text("基本定价"), footer: Text("输入/输出价格单位为 $/1M tokens")) {
+                LabeledContent("输入价格") {
+                    TextField("默认 2", text: $modelRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
                 }
-                LabeledContent("补全倍率（输出）") {
-                    TextField("默认 1", text: $completionRatio)
+                LabeledContent("输出价格") {
+                    TextField("默认与输入相同", text: $completionRatio)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
                 }
-                LabeledContent("固定价格") {
-                    TextField("不设置则用倍率计费", text: $modelPrice)
+                LabeledContent("固定价格（$/次）") {
+                    TextField("不设置则用 token 计费", text: $modelPrice)
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
                 }
@@ -232,8 +232,11 @@ private struct ModelPricingEditView: View {
 
     private func loadValues() {
         let row = viewModel.modelRows.first(where: { $0.modelName == modelName })
-        modelRatio = formatOptional(row?.modelRatio)
-        completionRatio = formatOptional(row?.completionRatio)
+        // Display as $/1M tokens (modelRatio * 2 for input, modelRatio * 2 * completionRatio for output)
+        let mr = row?.modelRatio ?? 1
+        let cr = row?.completionRatio ?? 1
+        modelRatio = formatOptional(mr * 2)
+        completionRatio = formatOptional(mr * 2 * cr)
         modelPrice = formatOptional(row?.modelPrice)
         cacheRatio = formatOptional(row?.cacheRatio)
         createCacheRatio = formatOptional(row?.createCacheRatio)
@@ -243,10 +246,16 @@ private struct ModelPricingEditView: View {
     }
 
     private func applyChanges() {
+        // Convert display values back to raw ratios
+        let inputPrice = Double(modelRatio) ?? 2
+        let outputPrice = Double(completionRatio) ?? inputPrice
+        let rawModelRatio = inputPrice / 2
+        let rawCompletionRatio = inputPrice > 0 ? outputPrice / inputPrice : 1
+
         viewModel.updateModel(
             modelName,
-            modelRatio: Double(modelRatio),
-            completionRatio: Double(completionRatio),
+            modelRatio: rawModelRatio,
+            completionRatio: rawCompletionRatio,
             modelPrice: Double(modelPrice),
             cacheRatio: Double(cacheRatio),
             createCacheRatio: Double(createCacheRatio),

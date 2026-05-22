@@ -130,6 +130,49 @@ final class ChannelsViewModel: ObservableObject {
         }
     }
 
+    func fetchPricingOptions() async throws -> [String: String] {
+        let options: [OptionItem] = try await service.fetchOptions()
+        return OptionParser.dictionary(from: options)
+    }
+
+    func updateSingleModelPricing(modelName: String, modelRatio: Double, completionRatio: Double) async {
+        do {
+            let options = try await fetchPricingOptions()
+
+            var modelRatioMap = parsePricingJSON(options["ModelRatio"])
+            var completionRatioMap = parsePricingJSON(options["CompletionRatio"])
+
+            modelRatioMap[modelName] = modelRatio
+            completionRatioMap[modelName] = completionRatio
+
+            let mrJSON = toJSON(modelRatioMap)
+            let crJSON = toJSON(completionRatioMap)
+
+            try await service.batchUpdateOptions([
+                OptionUpdateRequest(key: "ModelRatio", value: mrJSON),
+                OptionUpdateRequest(key: "CompletionRatio", value: crJSON)
+            ])
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func parsePricingJSON(_ jsonString: String?) -> [String: Double] {
+        guard let str = jsonString, let data = str.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+        var result: [String: Double] = [:]
+        for (key, value) in obj {
+            if let num = value as? Double { result[key] = num }
+            else if let num = value as? Int { result[key] = Double(num) }
+        }
+        return result
+    }
+
+    private func toJSON(_ map: [String: Double]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: map, options: [.sortedKeys]) else { return "{}" }
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
     private func perform(_ operation: () async throws -> Void) async {
         errorMessage = nil
         isLoading = true
@@ -227,6 +270,14 @@ final class UsersViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
             return nil
+        }
+    }
+
+    func fetchGroups() async -> [String] {
+        do {
+            return try await service.fetchGroups()
+        } catch {
+            return []
         }
     }
 

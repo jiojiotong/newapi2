@@ -43,9 +43,9 @@ private struct UsersContentView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(item.username).font(Font.headline)
-                        Text("显示名 \(item.displayName ?? "-") · 分组 \(item.group ?? "-")")
+                        Text("\(item.displayName ?? "-") · \(item.group ?? "default")")
                             .font(Font.caption).foregroundColor(Color.secondary)
-                        Text("额度 \(item.quota.map { String($0) } ?? "-") · 状态 \(item.status.map { String($0) } ?? "-") · 角色 \(item.role.map { String($0) } ?? "-")")
+                        Text("额度 \(item.quota.map { String(Int($0)) } ?? "0") · \(item.status == 1 ? "启用" : "禁用") · \(roleName(item.role))")
                             .font(Font.caption).foregroundColor(Color.secondary)
                     }
                 }
@@ -86,10 +86,17 @@ private struct UsersContentView: View {
                 .disabled(viewModel.isLoading)
         }
         .navigationDestination(isPresented: $showingCreate) {
-            DynamicObjectFormView(title: "新增用户", initialValues: ["username": .string(""), "password": .string(""), "group": .string("default")]) { payload in
-                await viewModel.create(payload)
-                return viewModel.errorMessage == nil
-            }
+            UserFormView(viewModel: viewModel, editingUser: nil)
+        }
+    }
+
+    private func roleName(_ role: Int?) -> String {
+        switch role {
+        case 100: return "Root"
+        case 10: return "管理员"
+        case 1: return "普通用户"
+        case 0: return "访客"
+        default: return "未知"
         }
     }
 }
@@ -135,10 +142,7 @@ private struct UserDetailView: View {
             Button("删除", role: ButtonRole.destructive) { Task { await viewModel.delete(displayed) } }
         }
         .navigationDestination(isPresented: $showingEdit) {
-            DynamicObjectFormView(title: "编辑用户", initialValues: displayed.raw.values) { payload in
-                await viewModel.update(payload)
-                return viewModel.errorMessage == nil
-            }
+            UserFormView(viewModel: viewModel, editingUser: displayed)
         }
     }
 
@@ -161,7 +165,7 @@ private struct UserDetailView: View {
 
     private var actionSection: some View {
         Section("操作") {
-            Button("编辑 JSON") { showingEdit = true }
+            Button("编辑用户") { showingEdit = true }
             Button("启用用户") { confirmingEnable = true }
             Button("禁用用户") { confirmingDisable = true }
             Button("切换管理员角色") { confirmingRoleChange = true }
