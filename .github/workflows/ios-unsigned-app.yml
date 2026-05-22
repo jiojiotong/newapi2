@@ -42,16 +42,18 @@ jobs:
 
       - name: Build Unsigned App
         run: |
+          set -o pipefail
           xcodebuild \
             -project NewAPIAdmin.xcodeproj \
             -scheme NewAPIAdmin \
             -configuration "$BUILD_CONFIGURATION" \
-            -destination 'generic/platform=iOS' \
+            -sdk iphoneos \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build
+            ONLY_ACTIVE_ARCH=NO \
+            build 2>&1 | tee xcodebuild.log
 
       - name: Package App Artifacts
         run: |
@@ -73,6 +75,14 @@ jobs:
           path: |
             NewAPIAdmin-unsigned-app.zip
             NewAPIAdmin-unsigned.ipa
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NewAPIAdmin-ios-build-log
+          retention-days: 14
+          path: xcodebuild.log
 
       - name: Build Summary
         run: |
