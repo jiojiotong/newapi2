@@ -79,9 +79,9 @@ public final class SessionStore: ObservableObject {
                 lastUser: user.username
             )
 
-            client = apiClient
             profile = serverProfile
             adminUser = user
+            client = apiClient
             storage.save(profile: serverProfile, user: user)
             lastServerURL = normalizedURL.absoluteString
             if rememberPassword {
