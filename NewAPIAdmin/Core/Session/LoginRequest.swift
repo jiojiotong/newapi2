@@ -6,7 +6,6 @@ struct LoginRequest: Encodable {
 }
 
 struct LoginResponse: Decodable {
-    let token: String?
     let id: Int?
     let username: String?
     let displayName: String?
@@ -27,7 +26,6 @@ struct LoginResponse: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case token
         case id
         case username
         case displayName = "display_name"

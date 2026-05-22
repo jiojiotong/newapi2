@@ -5,7 +5,7 @@ final class NewAPIClient {
     private let session: URLSession
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
-    private var accessToken: String?
+    private var userId: Int?
 
     init(baseURL: URL) {
         self.baseURL = baseURL
@@ -18,8 +18,8 @@ final class NewAPIClient {
         self.encoder = JSONEncoder()
     }
 
-    func setAccessToken(_ token: String?) {
-        self.accessToken = token
+    func setUserId(_ id: Int?) {
+        self.userId = id
     }
 
     func get<DataType: Decodable>(_ path: String) async throws -> DataType {
@@ -49,9 +49,12 @@ final class NewAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
 
-        if let token = accessToken, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        } else if let cookies = HTTPCookieStorage.shared.cookies(for: url), !cookies.isEmpty {
+        // NewAPI requires this header on all authenticated requests
+        if let userId {
+            request.setValue(String(userId), forHTTPHeaderField: "New-Api-User")
+        }
+
+        if let cookies = HTTPCookieStorage.shared.cookies(for: url), !cookies.isEmpty {
             let cookieHeader = cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
             request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
         }

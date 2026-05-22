@@ -4,7 +4,6 @@ final class ProfileStorage {
     private let profileKey = "newapi.admin.activeProfile"
     private let userKey = "newapi.admin.activeUser"
     private let lastServerURLKey = "newapi.admin.lastServerURL"
-    private let accessTokenKey = "newapi.admin.accessToken"
 
     func save(profile: ServerProfile, user: AdminUser) {
         let encoder = JSONEncoder()
@@ -15,14 +14,6 @@ final class ProfileStorage {
             UserDefaults.standard.set(userData, forKey: userKey)
         }
         UserDefaults.standard.set(profile.baseURL.absoluteString, forKey: lastServerURLKey)
-    }
-
-    func saveAccessToken(_ token: String) {
-        UserDefaults.standard.set(token, forKey: accessTokenKey)
-    }
-
-    func loadAccessToken() -> String? {
-        UserDefaults.standard.string(forKey: accessTokenKey)
     }
 
     func load() -> (ServerProfile, AdminUser)? {
@@ -42,7 +33,6 @@ final class ProfileStorage {
     func clear() {
         UserDefaults.standard.removeObject(forKey: profileKey)
         UserDefaults.standard.removeObject(forKey: userKey)
-        UserDefaults.standard.removeObject(forKey: accessTokenKey)
     }
 
     func clearAll() {
