@@ -59,7 +59,9 @@ private struct PricingContentView: View {
         }
         .toolbar {
             Button("保存") { Task { await viewModel.saveAll() } }
+                .disabled(viewModel.isLoading)
             Button("刷新") { Task { await viewModel.load() } }
+                .disabled(viewModel.isLoading)
         }
     }
 }

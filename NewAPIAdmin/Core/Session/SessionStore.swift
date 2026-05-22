@@ -115,7 +115,14 @@ public final class SessionStore: ObservableObject {
         profile = nil
         adminUser = nil
         client = nil
+        errorMessage = nil
         storage.clear()
+        // Clear session cookies to prevent leakage between accounts
+        if let cookies = HTTPCookieStorage.shared.cookies {
+            for cookie in cookies {
+                HTTPCookieStorage.shared.deleteCookie(cookie)
+            }
+        }
     }
 
     func revalidateSession() async {

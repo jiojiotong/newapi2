@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var sessionStore: SessionStore
+    @State private var confirmingClearData = false
+    @State private var confirmingLogout = false
 
     var body: some View {
         List {
@@ -16,15 +18,13 @@ struct SettingsView: View {
                 }
 
                 Button(role: ButtonRole.destructive) {
-                    Task {
-                        await sessionStore.logout()
-                    }
+                    confirmingLogout = true
                 } label: {
                     Text("退出登录")
                 }
 
                 Button(role: ButtonRole.destructive) {
-                    sessionStore.clearLocalData()
+                    confirmingClearData = true
                 } label: {
                     Text("清理本地数据")
                 }
@@ -35,5 +35,15 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("设置")
+        .confirmationDialog("确认退出登录？", isPresented: $confirmingLogout, titleVisibility: .visible) {
+            Button("退出登录", role: .destructive) {
+                Task { await sessionStore.logout() }
+            }
+        }
+        .confirmationDialog("确认清理所有本地数据？这将清除保存的密码和会话信息。", isPresented: $confirmingClearData, titleVisibility: .visible) {
+            Button("清理", role: .destructive) {
+                sessionStore.clearLocalData()
+            }
+        }
     }
 }

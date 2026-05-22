@@ -70,14 +70,23 @@ private struct RedemptionsContentView: View {
             viewModel.searchText = holder.searchText
             Task { await viewModel.search() }
         }
+        .onChange(of: holder.searchText) { newValue in
+            if newValue.isEmpty {
+                viewModel.searchText = ""
+                Task { await viewModel.load() }
+            }
+        }
         .overlay {
             if viewModel.isLoading { LoadingStateView(title: "加载兑换码") }
             else if viewModel.items.isEmpty { EmptyStateView(title: "没有兑换码", message: "创建兑换码或调整搜索条件。") }
         }
         .toolbar {
             Button("新增") { showingCreate = true }
+                .disabled(viewModel.isLoading)
             Button("清理失效") { confirmingClearInvalid = true }
+                .disabled(viewModel.isLoading)
             Button("刷新") { Task { await viewModel.load() } }
+                .disabled(viewModel.isLoading)
         }
         .navigationDestination(isPresented: $showingCreate) {
             RedemptionCreateView(viewModel: viewModel)
@@ -125,6 +134,7 @@ private struct RedemptionDetailView: View {
         .navigationDestination(isPresented: $showingEdit) {
             DynamicObjectFormView(title: "编辑兑换码", initialValues: displayed.raw.values) { payload in
                 await viewModel.update(payload)
+                return viewModel.errorMessage == nil
             }
         }
     }

@@ -365,6 +365,8 @@ final class PricingViewModel: ObservableObject {
     func saveAll() async {
         errorMessage = nil
         successMessage = nil
+        isLoading = true
+        defer { isLoading = false }
         do {
             let payload = buildPayload()
             try await service.batchUpdate(payload)

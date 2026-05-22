@@ -3,13 +3,14 @@ import SwiftUI
 struct DynamicObjectFormView: View {
     let title: String
     let initialValues: [String: AnyJSONValue]
-    let save: (DynamicObject) async -> Void
+    let save: (DynamicObject) async -> Bool
 
     @Environment(\.dismiss) private var dismiss
     @State private var jsonText: String
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
-    init(title: String, initialValues: [String: AnyJSONValue], save: @escaping (DynamicObject) async -> Void) {
+    init(title: String, initialValues: [String: AnyJSONValue], save: @escaping (DynamicObject) async -> Bool) {
         self.title = title
         self.initialValues = initialValues
         self.save = save
@@ -45,17 +46,28 @@ struct DynamicObjectFormView: View {
             Button("保存") {
                 Task { await saveJSON() }
             }
+            .disabled(isSaving)
         }
     }
 
     private func saveJSON() async {
-        do {
-            let data = Data(jsonText.utf8)
-            let object = try JSONDecoder().decode(DynamicObject.self, from: data)
-            await save(object)
-            dismiss()
-        } catch {
+        errorMessage = nil
+        guard let data = jsonText.data(using: .utf8),
+              let _ = try? JSONSerialization.jsonObject(with: data) else {
             errorMessage = "JSON 格式无效"
+            return
+        }
+        guard let object = try? JSONDecoder().decode(DynamicObject.self, from: data) else {
+            errorMessage = "JSON 解析失败"
+            return
+        }
+        isSaving = true
+        let success = await save(object)
+        isSaving = false
+        if success {
+            dismiss()
+        } else {
+            errorMessage = "保存失败，请检查数据后重试"
         }
     }
 }
