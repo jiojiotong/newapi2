@@ -34,7 +34,7 @@ struct PricingView: View {
                         TextEditor(text: $holder.editorText)
                             .font(.system(.body, design: .monospaced))
                             .frame(minHeight: 260)
-                            .onChange(of: holder.editorText) { _, newValue in
+                            .onChange(of: holder.editorText) { newValue in
                                 viewModel.editorText = newValue
                             }
                     }
@@ -47,7 +47,7 @@ struct PricingView: View {
                     Button("批量保存模型") { Task { await viewModel.saveModelBatch() } }
                     Button("刷新") { Task { await viewModel.load(); holder.editorText = viewModel.editorText } }
                 }
-                .onChange(of: viewModel.editorText) { _, newValue in
+                .onChange(of: viewModel.editorText) { newValue in
                     holder.editorText = newValue
                 }
             } else {

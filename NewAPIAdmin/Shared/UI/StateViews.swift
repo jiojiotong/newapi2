@@ -19,7 +19,19 @@ struct EmptyStateView: View {
     var systemImage = "tray"
 
     var body: some View {
-        ContentUnavailableView(title, systemImage: systemImage, description: Text(message))
+        VStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text(title)
+                .font(.headline)
+            Text(message)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -48,6 +60,18 @@ struct PermissionStateView: View {
     let message: String
 
     var body: some View {
-        ContentUnavailableView("权限不足", systemImage: "lock.trianglebadge.exclamationmark", description: Text(message))
+        VStack(spacing: 12) {
+            Image(systemName: "lock.trianglebadge.exclamationmark")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+            Text("权限不足")
+                .font(.headline)
+            Text(message)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

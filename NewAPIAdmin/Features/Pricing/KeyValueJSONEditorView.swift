@@ -20,7 +20,7 @@ struct KeyValueJSONEditorView: View {
                 }
             }
             .onDelete { rows.remove(atOffsets: $0); syncJSON() }
-            .onChange(of: rows) { _, _ in syncJSON() }
+            .onChange(of: rows) { _ in syncJSON() }
 
             Button("添加一行") {
                 rows.append(KeyValueRow(key: "", value: "1"))
@@ -28,7 +28,7 @@ struct KeyValueJSONEditorView: View {
             }
         }
         .onAppear { loadRows() }
-        .onChange(of: jsonText) { _, _ in loadRows() }
+        .onChange(of: jsonText) { _ in loadRows() }
     }
 
     private func loadRows() {

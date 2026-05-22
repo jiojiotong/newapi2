@@ -59,7 +59,7 @@ struct ServerLoginView: View {
                     serverURL = sessionStore.lastServerURL
                 }
             }
-            .onChange(of: username) { _, newValue in
+            .onChange(of: username) { newValue in
                 if let remembered = sessionStore.rememberedPassword(serverURL: serverURL, username: newValue) {
                     password = remembered
                     rememberPassword = true
