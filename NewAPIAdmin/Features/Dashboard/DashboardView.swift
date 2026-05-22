@@ -54,18 +54,12 @@ private struct DashboardContentView: View {
                 LabeledContent("兑换码数量", value: viewModel.redemptionCountText)
             }
 
-            Section("快捷入口") {
-                NavigationLink("渠道管理") {
-                    ChannelsView()
+            Section("管理") {
+                NavigationLink("数据看板") {
+                    StatisticsView()
                 }
-                NavigationLink("模型定价和分组倍率") {
+                NavigationLink("模型定价") {
                     PricingView()
-                }
-                NavigationLink("用户管理") {
-                    UsersView()
-                }
-                NavigationLink("兑换码管理") {
-                    RedemptionsView()
                 }
             }
         }

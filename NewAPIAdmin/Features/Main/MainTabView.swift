@@ -11,24 +11,10 @@ struct MainTabView: View {
             }
 
             NavigationStack {
-                StatisticsView()
-            }
-            .tabItem {
-                Label("数据", systemImage: "chart.bar")
-            }
-
-            NavigationStack {
                 ChannelsView()
             }
             .tabItem {
                 Label("渠道", systemImage: "antenna.radiowaves.left.and.right")
-            }
-
-            NavigationStack {
-                PricingView()
-            }
-            .tabItem {
-                Label("定价", systemImage: "tag")
             }
 
             NavigationStack {
