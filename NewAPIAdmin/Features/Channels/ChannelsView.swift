@@ -113,11 +113,14 @@ private struct ChannelDetailView: View {
     @State private var detail: Channel?
     @State private var showingEdit = false
     @State private var confirmingDelete = false
+    @State private var isTesting = false
+    @State private var isUpdatingBalance = false
+    @State private var actionResult: String?
+    @State private var actionIsError = false
 
     private var displayed: Channel { detail ?? item }
     private var title: String { displayed.name }
     private var groupText: String { displayed.group ?? "-" }
-    private var statusText: String { displayed.status.map { String($0) } ?? "-" }
     private var balanceText: String { displayed.balance.map { String($0) } ?? "-" }
 
     var body: some View {
@@ -140,6 +143,12 @@ private struct ChannelDetailView: View {
     private var content: some View {
         List {
             basicInfoSection
+            if let result = actionResult {
+                Section {
+                    Text(result)
+                        .foregroundColor(actionIsError ? Color.red : Color.green)
+                }
+            }
             actionSection
         }
     }
@@ -159,9 +168,59 @@ private struct ChannelDetailView: View {
     private var actionSection: some View {
         Section("操作") {
             Button("编辑渠道") { showingEdit = true }
-            Button("测试渠道") { Task { await viewModel.test(item) } }
-            Button("更新余额") { Task { await viewModel.updateBalance(item) } }
+            Button {
+                Task { await testChannel() }
+            } label: {
+                HStack {
+                    Text("测试渠道")
+                    Spacer()
+                    if isTesting { ProgressView() }
+                }
+            }
+            .disabled(isTesting || isUpdatingBalance)
+            Button {
+                Task { await updateBalance() }
+            } label: {
+                HStack {
+                    Text("更新余额")
+                    Spacer()
+                    if isUpdatingBalance { ProgressView() }
+                }
+            }
+            .disabled(isTesting || isUpdatingBalance)
             Button("删除", role: ButtonRole.destructive) { confirmingDelete = true }
+        }
+    }
+
+    private func testChannel() async {
+        isTesting = true
+        actionResult = nil
+        defer { isTesting = false }
+        await viewModel.test(item)
+        if let error = viewModel.errorMessage {
+            actionResult = error
+            actionIsError = true
+            viewModel.errorMessage = nil
+        } else {
+            actionResult = viewModel.serverMessage ?? "测试成功"
+            actionIsError = false
+            viewModel.serverMessage = nil
+        }
+    }
+
+    private func updateBalance() async {
+        isUpdatingBalance = true
+        actionResult = nil
+        defer { isUpdatingBalance = false }
+        await viewModel.updateBalance(item)
+        if let error = viewModel.errorMessage {
+            actionResult = error
+            actionIsError = true
+            viewModel.errorMessage = nil
+        } else {
+            actionResult = viewModel.serverMessage ?? "余额已更新"
+            actionIsError = false
+            viewModel.serverMessage = nil
         }
     }
 }
