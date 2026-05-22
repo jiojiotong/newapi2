@@ -18,6 +18,13 @@ final class NewAPIClient {
         self.encoder = JSONEncoder()
     }
 
+    init(baseURL: URL, session: URLSession) {
+        self.baseURL = baseURL
+        self.session = session
+        self.decoder = JSONDecoder()
+        self.encoder = JSONEncoder()
+    }
+
     func setUserId(_ id: Int?) {
         self.userId = id
     }

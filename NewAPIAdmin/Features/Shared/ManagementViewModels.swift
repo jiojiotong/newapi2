@@ -335,13 +335,13 @@ final class RedemptionsViewModel: ObservableObject {
 
 @MainActor
 final class PricingViewModel: ObservableObject {
-    @Published var options: [String: String] = [:]
-    @Published var selectedKey = PricingService.primaryKeys.first ?? "ModelPrice"
-    @Published var editorText = "{}"
+    @Published var modelRows: [ModelPricingRow] = []
+    @Published var groupRows: [GroupRatioRow] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var successMessage: String?
 
+    private var options: [String: String] = [:]
     private let service: PricingService
 
     init(service: PricingService) {
@@ -354,52 +354,202 @@ final class PricingViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             options = try await service.fetchOptions()
-            editorText = options[selectedKey] ?? "{}"
+            buildRows()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func select(_ key: String) {
-        selectedKey = key
-        editorText = options[key] ?? "{}"
-    }
-
-    func saveSelected() async {
-        await save([selectedKey: editorText])
-    }
-
-    func saveModelBatch() async {
-        var payload: [String: String] = [:]
-        for key in PricingService.batchKeys {
-            if let value = options[key] {
-                payload[key] = key == selectedKey ? editorText : value
-            }
-        }
-        payload[selectedKey] = editorText
-        await save(payload, batch: true)
-    }
-
-    private func save(_ payload: [String: String], batch: Bool = false) async {
+    func saveAll() async {
         errorMessage = nil
         successMessage = nil
         do {
-            for (key, value) in payload where looksLikeJSONOption(key) {
-                try FormValidation.validateJSONString(value, field: key)
-            }
-            if batch {
-                try await service.batchUpdate(payload)
-            } else if let key = payload.keys.first, let value = payload[key] {
-                try await service.update(key: key, value: value)
-            }
+            let payload = buildPayload()
+            try await service.batchUpdate(payload)
+            // Save GroupRatio separately (not in batch keys)
+            let groupJSON = buildGroupRatioJSON()
+            try await service.update(key: "GroupRatio", value: groupJSON)
             options.merge(payload) { _, new in new }
+            options["GroupRatio"] = groupJSON
             successMessage = "已保存"
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    private func looksLikeJSONOption(_ key: String) -> Bool {
-        !["DefaultUseAutoGroup"].contains(key)
+    // MARK: - Model operations
+
+    func addModel(_ name: String) {
+        guard !modelRows.contains(where: { $0.modelName == name }) else { return }
+        modelRows.append(ModelPricingRow(modelName: name, modelRatio: 1, completionRatio: 1))
+        modelRows.sort { $0.modelName < $1.modelName }
     }
+
+    func removeModel(_ name: String) {
+        modelRows.removeAll { $0.modelName == name }
+    }
+
+    func updateModel(_ name: String, modelRatio: Double?, completionRatio: Double?, modelPrice: Double?, cacheRatio: Double?, createCacheRatio: Double?, imageRatio: Double?, audioRatio: Double?, audioCompletionRatio: Double?) {
+        guard let index = modelRows.firstIndex(where: { $0.modelName == name }) else { return }
+        modelRows[index].modelRatio = modelRatio ?? 0
+        modelRows[index].completionRatio = completionRatio ?? 0
+        modelRows[index].modelPrice = modelPrice
+        modelRows[index].cacheRatio = cacheRatio
+        modelRows[index].createCacheRatio = createCacheRatio
+        modelRows[index].imageRatio = imageRatio
+        modelRows[index].audioRatio = audioRatio
+        modelRows[index].audioCompletionRatio = audioCompletionRatio
+    }
+
+    // MARK: - Group operations
+
+    func addGroup(_ name: String) {
+        guard !groupRows.contains(where: { $0.groupName == name }) else { return }
+        groupRows.append(GroupRatioRow(groupName: name, ratio: 1))
+        groupRows.sort { $0.groupName < $1.groupName }
+    }
+
+    func removeGroup(_ name: String) {
+        groupRows.removeAll { $0.groupName == name }
+    }
+
+    func updateGroup(_ name: String, ratio: Double) {
+        guard let index = groupRows.firstIndex(where: { $0.groupName == name }) else { return }
+        groupRows[index].ratio = ratio
+    }
+
+    // MARK: - Private
+
+    private func buildRows() {
+        let modelRatioMap = parseJSON(options["ModelRatio"])
+        let completionRatioMap = parseJSON(options["CompletionRatio"])
+        let modelPriceMap = parseJSON(options["ModelPrice"])
+        let cacheRatioMap = parseJSON(options["CacheRatio"])
+        let createCacheRatioMap = parseJSON(options["CreateCacheRatio"])
+        let imageRatioMap = parseJSON(options["ImageRatio"])
+        let audioRatioMap = parseJSON(options["AudioRatio"])
+        let audioCompletionRatioMap = parseJSON(options["AudioCompletionRatio"])
+
+        var allModels = Set<String>()
+        allModels.formUnion(modelRatioMap.keys)
+        allModels.formUnion(completionRatioMap.keys)
+        allModels.formUnion(modelPriceMap.keys)
+
+        modelRows = allModels.sorted().map { name in
+            ModelPricingRow(
+                modelName: name,
+                modelRatio: modelRatioMap[name] ?? 1,
+                completionRatio: completionRatioMap[name] ?? 1,
+                modelPrice: modelPriceMap[name],
+                cacheRatio: cacheRatioMap[name],
+                createCacheRatio: createCacheRatioMap[name],
+                imageRatio: imageRatioMap[name],
+                audioRatio: audioRatioMap[name],
+                audioCompletionRatio: audioCompletionRatioMap[name]
+            )
+        }
+
+        let groupRatioMap = parseJSON(options["GroupRatio"])
+        groupRows = groupRatioMap.sorted { $0.key < $1.key }.map { GroupRatioRow(groupName: $0.key, ratio: $0.value) }
+    }
+
+    private func buildPayload() -> [String: String] {
+        var modelRatioMap: [String: Double] = [:]
+        var completionRatioMap: [String: Double] = [:]
+        var modelPriceMap: [String: Double] = [:]
+        var cacheRatioMap: [String: Double] = [:]
+        var createCacheRatioMap: [String: Double] = [:]
+        var imageRatioMap: [String: Double] = [:]
+        var audioRatioMap: [String: Double] = [:]
+        var audioCompletionRatioMap: [String: Double] = [:]
+
+        for row in modelRows {
+            modelRatioMap[row.modelName] = row.modelRatio
+            if row.completionRatio != 0 {
+                completionRatioMap[row.modelName] = row.completionRatio
+            }
+            if let v = row.modelPrice, v > 0 {
+                modelPriceMap[row.modelName] = v
+            }
+            if let v = row.cacheRatio, v > 0 {
+                cacheRatioMap[row.modelName] = v
+            }
+            if let v = row.createCacheRatio, v > 0 {
+                createCacheRatioMap[row.modelName] = v
+            }
+            if let v = row.imageRatio, v > 0 {
+                imageRatioMap[row.modelName] = v
+            }
+            if let v = row.audioRatio, v > 0 {
+                audioRatioMap[row.modelName] = v
+            }
+            if let v = row.audioCompletionRatio, v > 0 {
+                audioCompletionRatioMap[row.modelName] = v
+            }
+        }
+
+        var payload: [String: String] = [:]
+        payload["ModelRatio"] = toJSON(modelRatioMap)
+        payload["CompletionRatio"] = toJSON(completionRatioMap)
+        payload["ModelPrice"] = toJSON(modelPriceMap)
+        payload["CacheRatio"] = toJSON(cacheRatioMap)
+        payload["CreateCacheRatio"] = toJSON(createCacheRatioMap)
+        payload["ImageRatio"] = toJSON(imageRatioMap)
+        payload["AudioRatio"] = toJSON(audioRatioMap)
+        payload["AudioCompletionRatio"] = toJSON(audioCompletionRatioMap)
+
+        return payload
+    }
+
+    private func buildGroupRatioJSON() -> String {
+        var groupRatioMap: [String: Double] = [:]
+        for row in groupRows {
+            groupRatioMap[row.groupName] = row.ratio
+        }
+        return toJSON(groupRatioMap)
+    }
+
+    private func parseJSON(_ jsonString: String?) -> [String: Double] {
+        guard let str = jsonString, let data = str.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        var result: [String: Double] = [:]
+        for (key, value) in obj {
+            if let num = value as? Double {
+                result[key] = num
+            } else if let num = value as? Int {
+                result[key] = Double(num)
+            }
+        }
+        return result
+    }
+
+    private func toJSON(_ map: [String: Double]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: map, options: [.sortedKeys]) else {
+            return "{}"
+        }
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+}
+
+// MARK: - Data Models
+
+struct ModelPricingRow: Identifiable, Equatable {
+    var id: String { modelName }
+    let modelName: String
+    var modelRatio: Double
+    var completionRatio: Double
+    var modelPrice: Double?
+    var cacheRatio: Double?
+    var createCacheRatio: Double?
+    var imageRatio: Double?
+    var audioRatio: Double?
+    var audioCompletionRatio: Double?
+}
+
+struct GroupRatioRow: Identifiable, Equatable {
+    var id: String { groupName }
+    let groupName: String
+    var ratio: Double
 }

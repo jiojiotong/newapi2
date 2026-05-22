@@ -7,48 +7,7 @@ struct PricingView: View {
     var body: some View {
         Group {
             if let viewModel = holder.viewModel {
-                Form {
-                    if let error = viewModel.errorMessage {
-                        Section { Text(error).foregroundColor(Color.red) }
-                    }
-                    if let success = viewModel.successMessage {
-                        Section { Text(success).foregroundColor(Color.green) }
-                    }
-
-                    Section("选项") {
-                        Picker("Key", selection: Binding(get: {
-                            viewModel.selectedKey
-                        }, set: { key in
-                            viewModel.select(key)
-                            holder.editorText = viewModel.editorText
-                        })) {
-                            ForEach(PricingService.primaryKeys, id: \.self) { key in
-                                Text(key).tag(key)
-                            }
-                        }
-                    }
-
-                    KeyValueJSONEditorView(jsonText: $holder.editorText)
-
-                    Section("原始 JSON") {
-                        TextEditor(text: Binding(get: {
-                            holder.editorText
-                        }, set: { newValue in
-                            holder.editorText = newValue
-                            viewModel.editorText = newValue
-                        }))
-                            .font(Font.system(Font.TextStyle.body, design: Font.Design.monospaced))
-                            .frame(minHeight: 260)
-                    }
-                }
-                .overlay {
-                    if viewModel.isLoading { LoadingStateView(title: "加载定价配置") }
-                }
-                .toolbar {
-                    Button("保存") { Task { await viewModel.saveSelected() } }
-                    Button("批量保存模型") { Task { await viewModel.saveModelBatch() } }
-                    Button("刷新") { Task { await viewModel.load(); holder.editorText = viewModel.editorText } }
-                }
+                PricingContentView(viewModel: viewModel)
             } else {
                 LoadingStateView(title: "准备定价管理")
             }
@@ -61,14 +20,317 @@ struct PricingView: View {
         guard holder.viewModel == nil, let client = try? sessionStore.activeClient() else { return }
         let viewModel = PricingViewModel(service: PricingService(client: client))
         holder.viewModel = viewModel
-        Task {
-            await viewModel.load()
-            holder.editorText = viewModel.editorText
-        }
+        Task { await viewModel.load() }
     }
 
     @MainActor private final class Holder: ObservableObject {
         @Published var viewModel: PricingViewModel?
-        @Published var editorText = "{}"
+    }
+}
+
+private struct PricingContentView: View {
+    @ObservedObject var viewModel: PricingViewModel
+    @State private var selectedTab = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("类型", selection: $selectedTab) {
+                Text("模型定价").tag(0)
+                Text("分组倍率").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .padding()
+
+            if let error = viewModel.errorMessage {
+                Text(error).foregroundColor(Color.red).padding(.horizontal)
+            }
+            if let success = viewModel.successMessage {
+                Text(success).foregroundColor(Color.green).padding(.horizontal)
+            }
+
+            if selectedTab == 0 {
+                ModelPricingListView(viewModel: viewModel)
+            } else {
+                GroupRatioListView(viewModel: viewModel)
+            }
+        }
+        .overlay {
+            if viewModel.isLoading { LoadingStateView(title: "加载定价配置") }
+        }
+        .toolbar {
+            Button("保存") { Task { await viewModel.saveAll() } }
+            Button("刷新") { Task { await viewModel.load() } }
+        }
+    }
+}
+
+// MARK: - Model Pricing Table
+
+private struct ModelPricingListView: View {
+    @ObservedObject var viewModel: PricingViewModel
+    @State private var searchText = ""
+    @State private var showingAdd = false
+    @State private var newModelName = ""
+
+    private var filteredModels: [ModelPricingRow] {
+        if searchText.isEmpty {
+            return viewModel.modelRows
+        }
+        let query = searchText.lowercased()
+        return viewModel.modelRows.filter { $0.modelName.lowercased().contains(query) }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                Text("共 \(viewModel.modelRows.count) 个模型")
+                    .font(Font.caption)
+                    .foregroundColor(Color.secondary)
+            }
+
+            ForEach(filteredModels) { row in
+                NavigationLink {
+                    ModelPricingEditView(viewModel: viewModel, modelName: row.modelName)
+                } label: {
+                    ModelPricingRowView(row: row)
+                }
+            }
+            .onDelete { indexSet in
+                let models = filteredModels
+                for index in indexSet {
+                    viewModel.removeModel(models[index].modelName)
+                }
+            }
+        }
+        .searchable(text: $searchText, prompt: "搜索模型")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("添加模型") { showingAdd = true }
+            }
+        }
+        .alert("添加模型", isPresented: $showingAdd) {
+            TextField("模型名称", text: $newModelName)
+            Button("添加") {
+                let name = newModelName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty {
+                    viewModel.addModel(name)
+                }
+                newModelName = ""
+            }
+            Button("取消", role: .cancel) { newModelName = "" }
+        }
+    }
+}
+
+private struct ModelPricingRowView: View {
+    let row: ModelPricingRow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(row.modelName)
+                .font(Font.headline)
+                .lineLimit(1)
+            HStack(spacing: 12) {
+                if let price = row.modelPrice, price > 0 {
+                    Label("固定 \(formatNumber(price))", systemImage: "dollarsign.circle")
+                } else {
+                    Label("输入 \(formatNumber(row.modelRatio))", systemImage: "arrow.right")
+                    Label("输出 \(formatNumber(row.completionRatio))", systemImage: "arrow.left")
+                }
+            }
+            .font(Font.caption)
+            .foregroundColor(Color.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func formatNumber(_ value: Double) -> String {
+        if value == value.rounded() && value < 10000 {
+            return String(Int(value))
+        }
+        return String(format: "%.4g", value)
+    }
+}
+
+// MARK: - Model Pricing Edit
+
+private struct ModelPricingEditView: View {
+    @ObservedObject var viewModel: PricingViewModel
+    let modelName: String
+
+    @State private var modelRatio = ""
+    @State private var completionRatio = ""
+    @State private var modelPrice = ""
+    @State private var cacheRatio = ""
+    @State private var createCacheRatio = ""
+    @State private var imageRatio = ""
+    @State private var audioRatio = ""
+    @State private var audioCompletionRatio = ""
+
+    var body: some View {
+        Form {
+            Section("基本定价") {
+                LabeledContent("模型倍率（输入）") {
+                    TextField("默认 1", text: $modelRatio)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("补全倍率（输出）") {
+                    TextField("默认与输入相同", text: $completionRatio)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("固定价格") {
+                    TextField("不设置则用倍率", text: $modelPrice)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+
+            Section("扩展倍率") {
+                LabeledContent("缓存倍率") {
+                    TextField("不设置", text: $cacheRatio)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("创建缓存倍率") {
+                    TextField("不设置", text: $createCacheRatio)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("图片倍率") {
+                    TextField("不设置", text: $imageRatio)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("音频输入倍率") {
+                    TextField("不设置", text: $audioRatio)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("音频输出倍率") {
+                    TextField("不设置", text: $audioCompletionRatio)
+                        .adminDecimalKeyboard()
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+
+            Section {
+                Button("应用修改") {
+                    applyChanges()
+                }
+            }
+        }
+        .navigationTitle(modelName)
+        .onAppear { loadValues() }
+    }
+
+    private func loadValues() {
+        let row = viewModel.modelRows.first(where: { $0.modelName == modelName })
+        modelRatio = formatOptional(row?.modelRatio)
+        completionRatio = formatOptional(row?.completionRatio)
+        modelPrice = formatOptional(row?.modelPrice)
+        cacheRatio = formatOptional(row?.cacheRatio)
+        createCacheRatio = formatOptional(row?.createCacheRatio)
+        imageRatio = formatOptional(row?.imageRatio)
+        audioRatio = formatOptional(row?.audioRatio)
+        audioCompletionRatio = formatOptional(row?.audioCompletionRatio)
+    }
+
+    private func applyChanges() {
+        viewModel.updateModel(
+            modelName,
+            modelRatio: Double(modelRatio),
+            completionRatio: Double(completionRatio),
+            modelPrice: Double(modelPrice),
+            cacheRatio: Double(cacheRatio),
+            createCacheRatio: Double(createCacheRatio),
+            imageRatio: Double(imageRatio),
+            audioRatio: Double(audioRatio),
+            audioCompletionRatio: Double(audioCompletionRatio)
+        )
+    }
+
+    private func formatOptional(_ value: Double?) -> String {
+        guard let value, value != 0 else { return "" }
+        if value == value.rounded() && value < 100000 {
+            return String(Int(value))
+        }
+        return String(value)
+    }
+}
+
+// MARK: - Group Ratio
+
+private struct GroupRatioListView: View {
+    @ObservedObject var viewModel: PricingViewModel
+    @State private var showingAdd = false
+    @State private var newGroupName = ""
+
+    var body: some View {
+        List {
+            Section {
+                Text("分组倍率决定不同用户分组的价格系数")
+                    .font(Font.caption)
+                    .foregroundColor(Color.secondary)
+            }
+
+            ForEach(viewModel.groupRows) { row in
+                GroupRatioRowView(viewModel: viewModel, row: row)
+            }
+            .onDelete { indexSet in
+                let groups = viewModel.groupRows
+                for index in indexSet {
+                    viewModel.removeGroup(groups[index].groupName)
+                }
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("添加分组") { showingAdd = true }
+            }
+        }
+        .alert("添加分组", isPresented: $showingAdd) {
+            TextField("分组名称", text: $newGroupName)
+            Button("添加") {
+                let name = newGroupName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty {
+                    viewModel.addGroup(name)
+                }
+                newGroupName = ""
+            }
+            Button("取消", role: .cancel) { newGroupName = "" }
+        }
+    }
+}
+
+private struct GroupRatioRowView: View {
+    @ObservedObject var viewModel: PricingViewModel
+    let row: GroupRatioRow
+
+    @State private var ratioText: String = ""
+
+    var body: some View {
+        HStack {
+            Text(row.groupName)
+                .font(Font.headline)
+            Spacer()
+            TextField("倍率", text: $ratioText)
+                .adminDecimalKeyboard()
+                .multilineTextAlignment(.trailing)
+                .frame(width: 80)
+                .onChange(of: ratioText) { newValue in
+                    if let value = Double(newValue) {
+                        viewModel.updateGroup(row.groupName, ratio: value)
+                    }
+                }
+        }
+        .onAppear {
+            if row.ratio == row.ratio.rounded() && row.ratio < 100000 {
+                ratioText = String(Int(row.ratio))
+            } else {
+                ratioText = String(row.ratio)
+            }
+        }
     }
 }
