@@ -132,6 +132,8 @@ struct MessageResponse: Codable, Equatable {
 struct ManageUserRequest: Encodable {
     let id: Int
     let action: String
+    var value: Int?
+    var mode: String?
 }
 
 struct OptionUpdateRequest: Encodable {
@@ -140,5 +142,5 @@ struct OptionUpdateRequest: Encodable {
 }
 
 struct OptionBatchUpdateRequest: Encodable {
-    let options: [String: String]
+    let options: [OptionUpdateRequest]
 }

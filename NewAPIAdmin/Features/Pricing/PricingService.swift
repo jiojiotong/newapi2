@@ -19,18 +19,11 @@ final class PricingService {
     }
 
     func update(key: String, value: String) async throws {
-        do {
-            let _: EmptyResponseData = try await client.put("/api/option/", body: OptionUpdateRequest(key: key, value: value))
-        } catch NewAPIError.forbidden {
-            throw NewAPIError.validation("当前账号没有 Root 权限，无法修改系统选项。")
-        }
+        let _: EmptyResponseData = try await client.put("/api/option/", body: OptionUpdateRequest(key: key, value: value))
     }
 
     func batchUpdate(_ options: [String: String]) async throws {
-        do {
-            let _: EmptyResponseData = try await client.put("/api/option/batch", body: OptionBatchUpdateRequest(options: options))
-        } catch NewAPIError.forbidden {
-            throw NewAPIError.validation("当前账号没有 Root 权限，无法批量修改模型定价选项。")
-        }
+        let optionArray = options.map { OptionUpdateRequest(key: $0.key, value: $0.value) }
+        let _: EmptyResponseData = try await client.put("/api/option/batch", body: OptionBatchUpdateRequest(options: optionArray))
     }
 }
