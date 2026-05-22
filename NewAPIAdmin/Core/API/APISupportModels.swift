@@ -96,10 +96,10 @@ extension KeyedDecodingContainer {
             if let value = try? decodeIfPresent(String.self, forKey: codingKey) {
                 return value
             }
-            if let intValue = try? decodeIfPresent(Int.self, forKey: codingKey), let intValue {
+            if let intValue = try? decodeIfPresent(Int.self, forKey: codingKey) {
                 return String(intValue)
             }
-            if let doubleValue = try? decodeIfPresent(Double.self, forKey: codingKey), let doubleValue {
+            if let doubleValue = try? decodeIfPresent(Double.self, forKey: codingKey) {
                 return String(doubleValue)
             }
         }
@@ -112,7 +112,7 @@ extension KeyedDecodingContainer {
             if let value = try? decodeIfPresent(Int.self, forKey: codingKey) {
                 return value
             }
-            if let string = try? decodeIfPresent(String.self, forKey: codingKey), let string, let value = Int(string) {
+            if let string = try? decodeIfPresent(String.self, forKey: codingKey), let value = Int(string) {
                 return value
             }
         }
@@ -125,10 +125,10 @@ extension KeyedDecodingContainer {
             if let value = try? decodeIfPresent(Double.self, forKey: codingKey) {
                 return value
             }
-            if let intValue = try? decodeIfPresent(Int.self, forKey: codingKey), let intValue {
+            if let intValue = try? decodeIfPresent(Int.self, forKey: codingKey) {
                 return Double(intValue)
             }
-            if let string = try? decodeIfPresent(String.self, forKey: codingKey), let string, let value = Double(string) {
+            if let string = try? decodeIfPresent(String.self, forKey: codingKey), let value = Double(string) {
                 return value
             }
         }
