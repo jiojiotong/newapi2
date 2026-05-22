@@ -1,4 +1,4 @@
-name: iOS Unsigned App
+name: iOS Signed App
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       configuration:
         description: Build configuration
         required: true
-        default: Debug
+        default: Release
         type: choice
         options:
           - Release
@@ -25,10 +25,10 @@ permissions:
 
 jobs:
   build:
-    name: Build Unsigned iOS App
+    name: Build Signed iOS App
     runs-on: macos-14
     env:
-      BUILD_CONFIGURATION: ${{ github.event.inputs.configuration || 'Debug' }}
+      BUILD_CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
 
     steps:
       - name: Checkout
@@ -53,34 +53,79 @@ jobs:
       - name: Show Xcode Project Info
         run: xcodebuild -list -project NewAPIAdmin.xcodeproj
 
-      - name: Build Unsigned Simulator App
+      - name: Install Signing Assets
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          if [ -z "$IOS_CERTIFICATE_P12_BASE64" ] || [ -z "$IOS_CERTIFICATE_PASSWORD" ] || [ -z "$IOS_PROVISION_PROFILE_BASE64" ]; then
+            echo "Missing signing secrets. Set IOS_CERTIFICATE_P12_BASE64, IOS_CERTIFICATE_PASSWORD, and IOS_PROVISION_PROFILE_BASE64."
+            exit 1
+          fi
+
+          CERTIFICATE_PATH="$RUNNER_TEMP/signing_certificate.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          printf '%s' "$IOS_CERTIFICATE_P12_BASE64" | base64 -D > "$CERTIFICATE_PATH"
+          printf '%s' "$IOS_PROVISION_PROFILE_BASE64" | base64 -D > "$PROFILE_PATH"
+
+          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$PROFILE_PLIST")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' "$PROFILE_PLIST")
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c 'Print TeamIdentifier:0' "$PROFILE_PLIST")
+          APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print Entitlements:application-identifier' "$PROFILE_PLIST")
+          BUNDLE_ID=${APP_IDENTIFIER#${TEAM_ID}.}
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          {
+            echo "PROFILE_NAME=$PROFILE_NAME"
+            echo "TEAM_ID=$TEAM_ID"
+            echo "BUNDLE_ID=$BUNDLE_ID"
+          } >> "$GITHUB_ENV"
+
+      - name: Archive Signed Device App
         run: |
           set -o pipefail
           set +e
-          rm -rf build/DerivedData
+          rm -rf build/DerivedData build/NewAPIAdmin.xcarchive build/export ExportOptions.plist
           xcodebuild \
             -project NewAPIAdmin.xcodeproj \
             -scheme NewAPIAdmin \
             -configuration "$BUILD_CONFIGURATION" \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/NewAPIAdmin.xcarchive \
             -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            SWIFT_OPTIMIZATION_LEVEL=-Onone \
-            SWIFT_COMPILATION_MODE=singlefile \
-            SWIFT_ENABLE_BATCH_MODE=NO \
-            ONLY_ACTIVE_ARCH=NO \
-            clean build 2>&1 | tee xcodebuild.log
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            clean archive 2>&1 | tee xcodebuild.log
           STATUS=${PIPESTATUS[0]}
           if [ "$STATUS" -ne 0 ]; then
             {
-              echo "## xcodebuild failed"
+              echo "## xcodebuild archive failed"
               echo
               echo "### Errors"
               echo '```text'
-              grep -n -E "error:|Undefined symbols|ld:|clang: error|SwiftCompile|Ld " xcodebuild.log || true
+              grep -n -E "error:|Undefined symbols|ld:|clang: error|SwiftCompile|CodeSign|Provisioning profile|Signing" xcodebuild.log || true
               echo '```'
               echo
               echo "### Last log lines"
@@ -88,49 +133,74 @@ jobs:
               tail -n 120 xcodebuild.log
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::group::Last 300 xcodebuild log lines"
-            tail -n 300 xcodebuild.log
-            echo "::endgroup::"
-            tail -n 120 xcodebuild.log | while IFS= read -r line; do
-              safe_line=$(printf '%s' "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
-              echo "::error::$safe_line"
-            done
             exit "$STATUS"
           fi
 
+      - name: Export Signed IPA
+        run: |
+          set -o pipefail
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>compileBitcode</key>
+            <false/>
+            <key>method</key>
+            <string>ad-hoc</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$BUNDLE_ID</key>
+              <string>$PROFILE_NAME</string>
+            </dict>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>$TEAM_ID</string>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/NewAPIAdmin.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist 2>&1 | tee -a xcodebuild.log
+
       - name: Package App Artifacts
         run: |
-          APP_PATH=$(ls -d build/DerivedData/Build/Products/${BUILD_CONFIGURATION}-iphonesimulator/*.app 2>/dev/null | /usr/bin/head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "No .app bundle found"
+          IPA_PATH=$(ls build/export/*.ipa 2>/dev/null | /usr/bin/head -n 1)
+          APP_PATH=$(ls -d build/NewAPIAdmin.xcarchive/Products/Applications/*.app 2>/dev/null | /usr/bin/head -n 1)
+          if [ -z "$IPA_PATH" ]; then
+            echo "No .ipa file found"
             exit 1
           fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" NewAPIAdmin-unsigned-simulator-app.zip
-          mkdir -p Payload
-          cp -R "$APP_PATH" Payload/
-          ditto -c -k --sequesterRsrc --keepParent Payload NewAPIAdmin-unsigned-simulator.ipa
+          cp "$IPA_PATH" NewAPIAdmin-signed-device.ipa
+          if [ -n "$APP_PATH" ]; then
+            ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" NewAPIAdmin-signed-device-app.zip
+          fi
 
-      - name: Upload Unsigned App
+      - name: Upload Signed App
         uses: actions/upload-artifact@v4
         with:
-          name: NewAPIAdmin-unsigned-app
+          name: NewAPIAdmin-signed-app
           retention-days: 14
           path: |
-            NewAPIAdmin-unsigned-simulator-app.zip
-            NewAPIAdmin-unsigned-simulator.ipa
+            NewAPIAdmin-signed-device.ipa
+            NewAPIAdmin-signed-device-app.zip
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ios-unsigned-${{ github.run_number }}
+          RELEASE_TAG: ios-signed-${{ github.run_number }}
         run: |
           gh release create "$RELEASE_TAG" \
-            NewAPIAdmin-unsigned-simulator-app.zip \
-            NewAPIAdmin-unsigned-simulator.ipa \
+            NewAPIAdmin-signed-device.ipa \
+            NewAPIAdmin-signed-device-app.zip \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "iOS unsigned simulator build #${GITHUB_RUN_NUMBER}" \
-            --notes "Unsigned simulator build for commit ${GITHUB_SHA}. This IPA is for build verification and cannot be installed on a physical iPhone."
+            --title "iOS signed device build #${GITHUB_RUN_NUMBER}" \
+            --notes "Signed ad-hoc iOS build for commit ${GITHUB_SHA}. Install only on devices included in the provisioning profile."
 
       - name: Upload Build Log
         if: always()
@@ -143,15 +213,15 @@ jobs:
       - name: Build Summary
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
-          ## Unsigned iOS Build
+          ## Signed iOS Build
 
-          Artifact: `NewAPIAdmin-unsigned-app`
+          Artifact: `NewAPIAdmin-signed-app`
 
-          Release: `ios-unsigned-${{ github.run_number }}`
+          Release: `ios-signed-${{ github.run_number }}`
 
           Files:
-          - `NewAPIAdmin-unsigned-simulator-app.zip`
-          - `NewAPIAdmin-unsigned-simulator.ipa`
+          - `NewAPIAdmin-signed-device.ipa`
+          - `NewAPIAdmin-signed-device-app.zip`
 
-          The `.ipa` is an unsigned simulator build and cannot be installed on an iPhone directly. It is intended for build verification.
+          The `.ipa` is an ad-hoc device build. It can only be installed on devices included in the provisioning profile.
           EOF
