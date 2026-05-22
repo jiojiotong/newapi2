@@ -20,6 +20,9 @@ on:
       - "project.yml"
       - ".github/workflows/ios-unsigned-app.yml"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Unsigned iOS App
@@ -116,6 +119,19 @@ jobs:
             NewAPIAdmin-unsigned-simulator-app.zip
             NewAPIAdmin-unsigned-simulator.ipa
 
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ios-unsigned-${{ github.run_number }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            NewAPIAdmin-unsigned-simulator-app.zip \
+            NewAPIAdmin-unsigned-simulator.ipa \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "iOS unsigned simulator build #${GITHUB_RUN_NUMBER}" \
+            --notes "Unsigned simulator build for commit ${GITHUB_SHA}. This IPA is for build verification and cannot be installed on a physical iPhone."
+
       - name: Upload Build Log
         if: always()
         uses: actions/upload-artifact@v4
@@ -130,6 +146,8 @@ jobs:
           ## Unsigned iOS Build
 
           Artifact: `NewAPIAdmin-unsigned-app`
+
+          Release: `ios-unsigned-${{ github.run_number }}`
 
           Files:
           - `NewAPIAdmin-unsigned-simulator-app.zip`
