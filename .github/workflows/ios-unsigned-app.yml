@@ -40,14 +40,15 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen generate
 
-      - name: Build Unsigned App
+      - name: Build Unsigned Simulator App
         run: |
           set -o pipefail
           xcodebuild \
             -project NewAPIAdmin.xcodeproj \
             -scheme NewAPIAdmin \
             -configuration "$BUILD_CONFIGURATION" \
-            -sdk iphoneos \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -57,15 +58,15 @@ jobs:
 
       - name: Package App Artifacts
         run: |
-          APP_PATH=$(ls -d build/DerivedData/Build/Products/${BUILD_CONFIGURATION}-iphoneos/*.app 2>/dev/null | /usr/bin/head -n 1)
+          APP_PATH=$(ls -d build/DerivedData/Build/Products/${BUILD_CONFIGURATION}-iphonesimulator/*.app 2>/dev/null | /usr/bin/head -n 1)
           if [ -z "$APP_PATH" ]; then
             echo "No .app bundle found"
             exit 1
           fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" NewAPIAdmin-unsigned-app.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" NewAPIAdmin-unsigned-simulator-app.zip
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
-          ditto -c -k --sequesterRsrc --keepParent Payload NewAPIAdmin-unsigned.ipa
+          ditto -c -k --sequesterRsrc --keepParent Payload NewAPIAdmin-unsigned-simulator.ipa
 
       - name: Upload Unsigned App
         uses: actions/upload-artifact@v4
@@ -73,8 +74,8 @@ jobs:
           name: NewAPIAdmin-unsigned-app
           retention-days: 14
           path: |
-            NewAPIAdmin-unsigned-app.zip
-            NewAPIAdmin-unsigned.ipa
+            NewAPIAdmin-unsigned-simulator-app.zip
+            NewAPIAdmin-unsigned-simulator.ipa
 
       - name: Upload Build Log
         if: always()
@@ -92,8 +93,8 @@ jobs:
           Artifact: `NewAPIAdmin-unsigned-app`
 
           Files:
-          - `NewAPIAdmin-unsigned-app.zip`
-          - `NewAPIAdmin-unsigned.ipa`
+          - `NewAPIAdmin-unsigned-simulator-app.zip`
+          - `NewAPIAdmin-unsigned-simulator.ipa`
 
-          The `.ipa` is unsigned and cannot be installed on an iPhone directly. It is intended for build verification or later signing.
+          The `.ipa` is an unsigned simulator build and cannot be installed on an iPhone directly. It is intended for build verification.
           EOF

@@ -1,6 +1,6 @@
 # iOS Unsigned Build
 
-This repository includes a GitHub Actions workflow that builds an unsigned iOS app artifact.
+This repository includes a GitHub Actions workflow that builds an unsigned iOS simulator app artifact.
 
 ## Workflow
 
@@ -13,13 +13,13 @@ This repository includes a GitHub Actions workflow that builds an unsigned iOS a
 
 The workflow uploads `NewAPIAdmin-unsigned-app` with two files:
 
-- `NewAPIAdmin-unsigned-app.zip`: zipped `.app` bundle.
-- `NewAPIAdmin-unsigned.ipa`: unsigned IPA-style package containing `Payload/NewAPIAdmin.app`.
+- `NewAPIAdmin-unsigned-simulator-app.zip`: zipped simulator `.app` bundle.
+- `NewAPIAdmin-unsigned-simulator.ipa`: unsigned IPA-style package containing `Payload/NewAPIAdmin.app`.
 
 Artifacts are retained for 14 days.
 
 ## Important
 
-The IPA is not signed and cannot be installed on an iPhone directly. It is useful for verifying that GitHub can build the iOS app and as input for a later signing step.
+The IPA is a simulator build and is not signed. It cannot be installed on an iPhone directly. It is useful for verifying that GitHub can build the iOS app.
 
-To install on a device, sign the app locally with Xcode or use Apple Developer signing assets in CI.
+To install on a device, build and sign the app locally with Xcode or use Apple Developer signing assets in CI.
