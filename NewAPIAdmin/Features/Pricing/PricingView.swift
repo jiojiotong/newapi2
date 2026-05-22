@@ -190,8 +190,6 @@ private struct ModelPricingEditView: View {
                         .adminDecimalKeyboard()
                         .multilineTextAlignment(.trailing)
                 }
-                }
-                }
             }
 
             Section("扩展倍率") {
