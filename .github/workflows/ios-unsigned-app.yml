@@ -6,7 +6,7 @@ on:
       configuration:
         description: Build configuration
         required: true
-        default: Release
+        default: Debug
         type: choice
         options:
           - Release
@@ -25,7 +25,7 @@ jobs:
     name: Build Unsigned iOS App
     runs-on: macos-14
     env:
-      BUILD_CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
+      BUILD_CONFIGURATION: ${{ github.event.inputs.configuration || 'Debug' }}
 
     steps:
       - name: Checkout
@@ -64,6 +64,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            SWIFT_OPTIMIZATION_LEVEL=-Onone \
+            SWIFT_COMPILATION_MODE=singlefile \
             ONLY_ACTIVE_ARCH=NO \
             build 2>&1 | tee xcodebuild.log
           STATUS=${PIPESTATUS[0]}

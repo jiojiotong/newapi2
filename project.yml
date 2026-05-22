@@ -24,6 +24,8 @@ targets:
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGN_IDENTITY: ""
+        SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+        SWIFT_COMPILATION_MODE: singlefile
 schemes:
   NewAPIAdmin:
     build:
