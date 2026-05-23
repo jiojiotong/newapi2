@@ -74,9 +74,17 @@ final class ChatService {
             let jsonStr = String(line.dropFirst(6))
             if jsonStr == "[DONE]" { break }
             guard let jsonData = jsonStr.data(using: .utf8),
-                  let chunk = try? JSONDecoder().decode(StreamChunk.self, from: jsonData),
-                  let content = chunk.choices?.first?.delta?.content else { continue }
-            await onChunk(content)
+                  let chunk = try? JSONDecoder().decode(StreamChunk.self, from: jsonData) else {
+                if let message = serverMessage(from: jsonStr.data(using: .utf8) ?? Data()) {
+                    throw ChatError.serverError(message)
+                }
+                continue
+            }
+            if let content = chunk.choices?.first?.delta?.content {
+                await onChunk(content)
+            } else if let message = serverMessage(from: jsonData) {
+                throw ChatError.serverError(message)
+            }
         }
     }
 
@@ -120,7 +128,18 @@ final class ChatService {
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, _) = try await URLSession.shared.data(for: request)
-        let response = try JSONDecoder().decode(ImageResponse.self, from: data)
+        let response: ImageResponse
+        do {
+            response = try JSONDecoder().decode(ImageResponse.self, from: data)
+        } catch {
+            if let message = serverMessage(from: data) {
+                throw ChatError.serverError(message)
+            }
+            throw ChatError.serverError(error.localizedDescription)
+        }
+        if let error = response.error {
+            throw ChatError.serverError(error.message)
+        }
         if let url = response.data?.first?.url {
             return url
         }
@@ -254,6 +273,7 @@ struct ImageRequest: Encodable {
 
 struct ImageResponse: Decodable {
     let data: [ImageData]?
+    let error: ChatResponseError?
 
     struct ImageData: Decodable {
         let url: String?

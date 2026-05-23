@@ -260,8 +260,9 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private func loadModelPricing() async {
+        let channelMap = (try? await service.fetchModelChannelMap()) ?? [:]
+
         do {
-            let channelMap = (try? await service.fetchModelChannelMap()) ?? [:]
             // Use /api/pricing (public endpoint, works for all roles)
             let pricing: [PricingItem] = try await service.fetchPricing()
 
@@ -281,7 +282,12 @@ final class StatisticsViewModel: ObservableObject {
                 )
             }
         } catch {
-            modelCountText = "加载失败"
+            if !channelMap.isEmpty {
+                modelCountText = String(channelMap.count)
+            } else {
+                modelCountText = "加载失败"
+            }
+            modelPricingList = []
         }
     }
 

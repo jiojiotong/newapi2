@@ -29,40 +29,6 @@ struct SettingsView: View {
                 }
             }
 
-            if savedServers.count > 1 {
-                Section("切换服务器") {
-                    ForEach(savedServers) { server in
-                        Button {
-                            switchToServer(server)
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(server.name)
-                                        .font(Font.subheadline)
-                                        .foregroundColor(Color.primary)
-                                    Text("\(server.username)@\(server.url)")
-                                        .font(Font.caption)
-                                        .foregroundColor(Color.secondary)
-                                        .lineLimit(1)
-                                }
-                                Spacer()
-                                if server.url == currentServerURL && server.username == sessionStore.adminUser?.username {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(Color.accentColor)
-                                }
-                            }
-                        }
-                    }
-                    .onDelete { indexSet in
-                        let toDelete = indexSet.map { savedServers[$0] }
-                        for server in toDelete {
-                            ProfileStorage().removeSavedServer(server)
-                        }
-                        savedServers = ProfileStorage().loadSavedServers()
-                    }
-                }
-            }
-
             Section("账号管理") {
                 NavigationLink {
                     ProfileEditView()
@@ -83,6 +49,16 @@ struct SettingsView: View {
                     CheckinView()
                 } label: {
                     Label("每日签到", systemImage: "calendar.badge.checkmark")
+                }
+            }
+
+            if savedServers.count > 1 {
+                Section("切换服务器") {
+                    NavigationLink {
+                        SwitchServerView()
+                    } label: {
+                        Label("查看服务器详情", systemImage: "arrow.triangle.2.circlepath")
+                    }
                 }
             }
 
@@ -129,6 +105,81 @@ struct SettingsView: View {
                 savedServers = []
             }
         }
+        .adminListChrome()
+    }
+
+}
+
+private struct SwitchServerView: View {
+    @EnvironmentObject private var sessionStore: SessionStore
+    @State private var savedServers: [SavedServer] = []
+
+    private var currentServerURL: String {
+        sessionStore.profile?.baseURL.absoluteString ?? "-"
+    }
+
+    private var currentUsername: String {
+        sessionStore.adminUser?.username ?? "-"
+    }
+
+    private var roleText: String {
+        guard let role = sessionStore.adminUser?.role else { return "-" }
+        switch role {
+        case 100: return "Root"
+        case 10: return "管理员"
+        default: return "普通用户"
+        }
+    }
+
+    var body: some View {
+        List {
+            Section("当前服务器") {
+                LabeledContent("地址", value: currentServerURL)
+                LabeledContent("账号", value: currentUsername)
+                LabeledContent("角色", value: roleText)
+            }
+
+            if savedServers.isEmpty {
+                Section {
+                    Text("没有可切换的服务器")
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                Section("服务器列表") {
+                    ForEach(savedServers) { server in
+                        Button {
+                            switchToServer(server)
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(server.name)
+                                        .foregroundColor(.primary)
+                                    Text(server.username.isEmpty ? server.url : "\(server.username)@\(server.url)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                                if server.url == currentServerURL && server.username == currentUsername {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .onDelete { indexSet in
+                        let toDelete = indexSet.map { savedServers[$0] }
+                        for server in toDelete {
+                            ProfileStorage().removeSavedServer(server)
+                        }
+                        savedServers = ProfileStorage().loadSavedServers()
+                    }
+                }
+            }
+        }
+        .navigationTitle("切换服务器")
+        .onAppear { savedServers = ProfileStorage().loadSavedServers() }
         .adminListChrome()
     }
 

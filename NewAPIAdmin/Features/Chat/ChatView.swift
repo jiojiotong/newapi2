@@ -70,6 +70,7 @@ struct ChatView: View {
                         }
                     }
                     .padding()
+                    .animation(.easeInOut(duration: 0.22), value: viewModel.messages.count)
                 }
                 .onChange(of: viewModel.messages.count) { _ in
                     if let last = viewModel.messages.last {
@@ -276,16 +277,27 @@ private struct MessageBubble: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                 }
-                if !message.content.isEmpty {
-                    Text(message.content)
+                if message.status == .loading {
+                    TypingIndicatorView(title: message.content.isEmpty ? "正在回答" : message.content)
                         .padding(.vertical, 11)
                         .padding(.horizontal, 14)
-                        .background(message.isUser ? Color.accentColor : Color.adminSurface)
-                        .foregroundColor(message.isUser ? Color.white : Color.primary)
+                        .background(Color.adminSurface)
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .strokeBorder(message.isUser ? Color.accentColor.opacity(0.14) : Color.adminStroke, lineWidth: 1)
+                                .strokeBorder(Color.adminStroke, lineWidth: 1)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                } else if !message.content.isEmpty {
+                    Text(message.content)
+                        .padding(.vertical, 11)
+                        .padding(.horizontal, 14)
+                        .background(message.isUser ? Color.accentColor : message.status == .error ? Color.red.opacity(0.10) : Color.adminSurface)
+                        .foregroundColor(message.isUser ? Color.white : message.status == .error ? Color.red : Color.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(message.isUser ? Color.accentColor.opacity(0.14) : message.status == .error ? Color.red.opacity(0.20) : Color.adminStroke, lineWidth: 1)
                         }
                         .shadow(color: Color.black.opacity(message.isUser ? 0.06 : 0.03), radius: 6, x: 0, y: 2)
                         .textSelection(.enabled)
@@ -329,6 +341,35 @@ private struct MessageBubble: View {
     }
 }
 
+private struct TypingIndicatorView: View {
+    let title: String
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            HStack(spacing: 4) {
+                ForEach(0 ..< 3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.secondary.opacity(0.75))
+                        .frame(width: 5, height: 5)
+                        .scaleEffect(animating ? 1.05 : 0.55)
+                        .opacity(animating ? 1 : 0.35)
+                        .animation(
+                            .easeInOut(duration: 0.55)
+                                .repeatForever(autoreverses: true)
+                                .delay(Double(index) * 0.16),
+                            value: animating
+                        )
+                }
+            }
+        }
+        .onAppear { animating = true }
+    }
+}
+
 private struct AssistantAvatar: View {
     var body: some View {
         ZStack {
@@ -336,9 +377,15 @@ private struct AssistantAvatar: View {
                 .fill(Color.accentColor.opacity(0.12))
             Circle()
                 .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 1)
-            Image(systemName: "sparkles")
+            Image(systemName: "face.smiling")
                 .font(Font.system(size: 12, weight: .semibold))
                 .foregroundColor(Color.accentColor)
+        }
+        .overlay(alignment: .topTrailing) {
+            Image(systemName: "sparkles")
+                .font(Font.system(size: 5.5, weight: .bold))
+                .foregroundColor(Color.pink.opacity(0.85))
+                .offset(x: 2, y: -1)
         }
         .frame(width: 28, height: 28)
         .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
@@ -449,11 +496,26 @@ private struct ModelPickerView: View {
 
 // MARK: - ViewModel
 
+enum DisplayMessageStatus: Equatable {
+    case normal
+    case loading
+    case error
+}
+
 struct DisplayMessage: Identifiable {
-    let id = UUID()
+    let id: UUID
     let content: String
     let isUser: Bool
     let imageURL: String?
+    var status: DisplayMessageStatus
+
+    init(id: UUID = UUID(), content: String, isUser: Bool, imageURL: String?, status: DisplayMessageStatus = .normal) {
+        self.id = id
+        self.content = content
+        self.isUser = isUser
+        self.imageURL = imageURL
+        self.status = status
+    }
 }
 
 struct ContextUsage {
@@ -617,9 +679,24 @@ final class ChatViewModel: ObservableObject {
         return max(count, 1)
     }
 
+    private func appendChatError(_ message: String) {
+        messages.append(DisplayMessage(content: "错误：\(message)", isUser: false, imageURL: nil, status: .error))
+    }
+
+    private func updateAssistantMessage(at index: Int, id: UUID, content: String, imageURL: String? = nil, status: DisplayMessageStatus = .normal) {
+        guard messages.indices.contains(index) else { return }
+        messages[index] = DisplayMessage(id: id, content: content, isUser: false, imageURL: imageURL, status: status)
+    }
+
     func sendMessage() async {
-        guard let service = chatService else { return }
-        guard !selectedModel.isEmpty else { return }
+        guard let service = chatService else {
+            appendChatError("请先选择令牌")
+            return
+        }
+        guard !selectedModel.isEmpty else {
+            appendChatError("请先选择模型")
+            return
+        }
         let userText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !userText.isEmpty || attachedImage != nil else { return }
         let imageBase64 = attachedImageBase64()
@@ -642,49 +719,79 @@ final class ChatViewModel: ObservableObject {
             // Stream mode: show response token by token
             var fullReply = ""
             let replyIndex = messages.count
-            messages.append(DisplayMessage(content: "", isUser: false, imageURL: nil))
+            let replyID = UUID()
+            messages.append(DisplayMessage(id: replyID, content: "正在回答", isUser: false, imageURL: nil, status: .loading))
 
             do {
                 try await service.sendMessageStream(model: selectedModel, messages: messagesWithMemory, imageBase64: imageBase64) { chunk in
                     fullReply += chunk
-                    self.messages[replyIndex] = DisplayMessage(content: fullReply, isUser: false, imageURL: nil)
+                    self.updateAssistantMessage(at: replyIndex, id: replyID, content: fullReply)
+                }
+                if fullReply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    updateAssistantMessage(at: replyIndex, id: replyID, content: "错误：服务没有返回内容", status: .error)
+                    return
                 }
                 chatHistory.append(ChatMessage(role: "assistant", content: fullReply))
                 saveCurrentToHistory()
             } catch {
-                messages[replyIndex] = DisplayMessage(content: "错误：\(error.localizedDescription)", isUser: false, imageURL: nil)
+                updateAssistantMessage(at: replyIndex, id: replyID, content: "错误：\(error.localizedDescription)", status: .error)
             }
         } else {
             // Normal mode: wait for full response
+            let replyIndex = messages.count
+            let replyID = UUID()
+            messages.append(DisplayMessage(id: replyID, content: "正在回答", isUser: false, imageURL: nil, status: .loading))
+
             do {
                 let reply = try await service.sendMessage(model: selectedModel, messages: messagesWithMemory, imageBase64: imageBase64)
+                if reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    updateAssistantMessage(at: replyIndex, id: replyID, content: "错误：服务没有返回内容", status: .error)
+                    return
+                }
                 chatHistory.append(ChatMessage(role: "assistant", content: reply))
-                messages.append(DisplayMessage(content: reply, isUser: false, imageURL: nil))
+                updateAssistantMessage(at: replyIndex, id: replyID, content: reply)
                 saveCurrentToHistory()
             } catch {
-                messages.append(DisplayMessage(content: "错误：\(error.localizedDescription)", isUser: false, imageURL: nil))
+                updateAssistantMessage(at: replyIndex, id: replyID, content: "错误：\(error.localizedDescription)", status: .error)
             }
         }
     }
 
     func generateImage() async {
         let prompt = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let service = chatService, !selectedModel.isEmpty, !prompt.isEmpty else { return }
+        guard let service = chatService else {
+            appendChatError("请先选择令牌")
+            return
+        }
+        guard !selectedModel.isEmpty else {
+            appendChatError("请先选择模型")
+            return
+        }
+        guard !prompt.isEmpty else { return }
         inputText = ""
         messages.append(DisplayMessage(content: prompt, isUser: true, imageURL: nil))
 
         isSending = true
         defer { isSending = false }
 
+        let replyIndex = messages.count
+        let replyID = UUID()
+        messages.append(DisplayMessage(id: replyID, content: "正在生成图片", isUser: false, imageURL: nil, status: .loading))
+
         do {
             let url = try await service.generateImage(model: selectedModel, prompt: prompt, size: "1024x1024")
             if url.hasPrefix("http") {
-                messages.append(DisplayMessage(content: "", isUser: false, imageURL: url))
+                updateAssistantMessage(at: replyIndex, id: replyID, content: "", imageURL: url)
             } else {
-                messages.append(DisplayMessage(content: url, isUser: false, imageURL: nil))
+                let content = url.trimmingCharacters(in: .whitespacesAndNewlines)
+                if content.isEmpty {
+                    updateAssistantMessage(at: replyIndex, id: replyID, content: "错误：服务没有返回图片", status: .error)
+                } else {
+                    updateAssistantMessage(at: replyIndex, id: replyID, content: content)
+                }
             }
         } catch {
-            messages.append(DisplayMessage(content: "错误：\(error.localizedDescription)", isUser: false, imageURL: nil))
+            updateAssistantMessage(at: replyIndex, id: replyID, content: "错误：\(error.localizedDescription)", status: .error)
         }
     }
 
