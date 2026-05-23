@@ -68,6 +68,7 @@ private struct PricingContentView: View {
             }
                 .disabled(viewModel.isLoading)
         }
+        .adminScreenBackground()
     }
 }
 
@@ -126,6 +127,7 @@ private struct ModelPricingListView: View {
             }
             Button("取消", role: .cancel) { newModelName = "" }
         }
+        .adminListChrome()
     }
 }
 
@@ -254,6 +256,7 @@ private struct ModelPricingEditView: View {
         }
         .navigationTitle(modelName)
         .onAppear { loadValues() }
+        .adminFormChrome()
     }
 
     private func loadValues() {

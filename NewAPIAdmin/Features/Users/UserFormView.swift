@@ -77,14 +77,14 @@ struct UserFormView: View {
                     }
                 }
 
-                Section(header: Text("额度管理"), footer: Text("当前额度：\(formatQuota(editingUser?.quota))")) {
+                Section(header: Text("额度管理"), footer: Text("当前额度：\(formatQuota(editingUser?.quota))。输入美元金额，如 1 表示 $1.00")) {
                     Picker("操作", selection: $quotaAction) {
                         Text("增加").tag("add")
                         Text("减少").tag("subtract")
                         Text("设置为").tag("override")
                     }
-                    TextField("额度数值（整数）", text: $quotaAmount)
-                        .adminNumberKeyboard()
+                    TextField("金额（美元）", text: $quotaAmount)
+                        .adminDecimalKeyboard()
                         .adminEditableField()
                     Button("修改额度") {
                         Task { await updateQuota() }
@@ -110,6 +110,7 @@ struct UserFormView: View {
             availableGroups = await viewModel.fetchGroups()
             loadFromUser()
         }
+        .adminFormChrome()
     }
 
     private func loadFromUser() {
@@ -176,17 +177,18 @@ struct UserFormView: View {
     }
 
     private func updateQuota() async {
-        guard let user = editingUser, let amount = Int(quotaAmount), amount > 0 else {
-            viewModel.errorMessage = "额度数值必须为正整数"
+        guard let user = editingUser, let dollars = Double(quotaAmount), dollars > 0 else {
+            viewModel.errorMessage = "请输入有效的金额"
             return
         }
+        let quotaValue = Int(dollars * 500000)
         isSaving = true
         defer { isSaving = false }
         successMessage = nil
 
-        await viewModel.manageQuota(user, value: amount, mode: quotaAction)
+        await viewModel.manageQuota(user, value: quotaValue, mode: quotaAction)
         if viewModel.errorMessage == nil {
-            successMessage = "额度修改成功"
+            successMessage = "额度修改成功（\(quotaAction == "add" ? "+" : quotaAction == "subtract" ? "-" : "=") $\(String(format: "%.2f", dollars))）"
             quotaAmount = ""
         }
     }

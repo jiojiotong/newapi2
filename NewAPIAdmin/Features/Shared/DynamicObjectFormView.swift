@@ -48,6 +48,7 @@ struct DynamicObjectFormView: View {
             }
             .disabled(isSaving)
         }
+        .adminFormChrome()
     }
 
     private func saveJSON() async {

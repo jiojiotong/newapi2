@@ -104,6 +104,33 @@ private struct StatisticsContentView: View {
                 StatCard(title: "渠道数量", value: viewModel.channelCountText, icon: "antenna.radiowaves.left.and.right")
                 StatCard(title: "模型数量", value: viewModel.modelCountText, icon: "cpu")
             }
+
+            if !viewModel.perfModels.isEmpty {
+                Section("性能健康（24h）") {
+                    ForEach(viewModel.perfModels, id: \.modelName) { model in
+                        HStack {
+                            Text(model.modelName)
+                                .font(Font.subheadline)
+                                .lineLimit(1)
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("\(model.avgLatencyMs)ms")
+                                    .font(Font.caption)
+                                HStack(spacing: 4) {
+                                    Text("\(String(format: "%.1f%%", model.successRate * 100))")
+                                        .font(Font.caption2)
+                                        .foregroundColor(model.successRate >= 0.95 ? Color.green : model.successRate >= 0.8 ? Color.orange : Color.red)
+                                    if model.avgTps > 0 {
+                                        Text("\(String(format: "%.1f", model.avgTps)) t/s")
+                                            .font(Font.caption2)
+                                            .foregroundColor(Color.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         .overlay {
             if viewModel.isLoading { LoadingStateView(title: "加载统计数据") }
@@ -111,6 +138,7 @@ private struct StatisticsContentView: View {
         .toolbar {
             Button("刷新") { Task { await viewModel.load() } }
         }
+        .adminListChrome()
     }
 
     private func formatPrice(_ value: Double) -> String {
@@ -143,20 +171,27 @@ private struct StatCard: View {
     let icon: String
 
     var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(Color.accentColor)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(Font.caption)
-                    .foregroundColor(Color.secondary)
-                Text(value)
-                    .font(Font.title3.bold())
+        AdminSurfaceCard(cornerRadius: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.12))
+                    Image(systemName: icon)
+                        .foregroundColor(Color.accentColor)
+                }
+                .frame(width: 36, height: 36)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(Font.caption)
+                        .foregroundColor(Color.secondary)
+                    Text(value)
+                        .font(Font.title3.bold())
+                }
+
+                Spacer()
             }
-            Spacer()
         }
-        .padding(.vertical, 4)
     }
 }
 
@@ -177,6 +212,7 @@ final class StatisticsViewModel: ObservableObject {
     @Published var modelCountText = "-"
     @Published var topModels: [ModelUsage] = []
     @Published var modelPricingList: [ModelPricingInfo] = []
+    @Published var perfModels: [PerfModelSummary] = []
 
     private let service: StatisticsService
 
@@ -193,6 +229,7 @@ final class StatisticsViewModel: ObservableObject {
         await loadCounts()
         await loadQuotaData()
         await loadModelPricing()
+        await loadPerfMetrics()
     }
 
     private func loadLogStat() async {
@@ -245,6 +282,15 @@ final class StatisticsViewModel: ObservableObject {
             }
         } catch {
             modelCountText = "加载失败"
+        }
+    }
+
+    private func loadPerfMetrics() async {
+        do {
+            let result: PerfSummaryResult = try await service.fetchPerfSummary()
+            perfModels = result.models
+        } catch {
+            perfModels = []
         }
     }
 

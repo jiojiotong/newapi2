@@ -103,6 +103,7 @@ private struct ChannelsContentView: View {
         .navigationDestination(isPresented: $showingCreate) {
             ChannelFormView(viewModel: viewModel, editingChannel: nil)
         }
+        .adminListChrome()
     }
 }
 

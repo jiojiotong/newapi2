@@ -103,6 +103,7 @@ struct CheckinView: View {
             if isLoading { LoadingStateView(title: "加载签到信息") }
         }
         .task { await loadStatus() }
+        .adminFormChrome()
     }
 
     private func loadStatus() async {

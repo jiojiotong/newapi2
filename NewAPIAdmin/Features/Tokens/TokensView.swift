@@ -110,6 +110,7 @@ private struct TokensContentView: View {
         .navigationDestination(isPresented: $showingCreate) {
             TokenCreateView(viewModel: viewModel)
         }
+        .adminListChrome()
     }
 
     private func formatQuota(_ quota: Int?) -> String {
@@ -319,6 +320,7 @@ private struct TokenEditView: View {
             loadFromToken()
             availableGroups = await viewModel.fetchGroups(preserving: token.group)
         }
+        .adminFormChrome()
     }
 
     private func loadFromToken() {
@@ -452,6 +454,7 @@ private struct TokenCreateView: View {
         .task {
             availableGroups = await viewModel.fetchGroups()
         }
+        .adminFormChrome()
     }
 
     private func create() async {

@@ -37,6 +37,7 @@ struct RedemptionCreateView: View {
             }
         }
         .navigationTitle("新增兑换码")
+        .adminFormChrome()
     }
 
     private func create() async {

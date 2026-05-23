@@ -89,14 +89,18 @@ private struct UserHomeContentView: View {
             }
 
             Section("令牌") {
-                NavigationLink("管理我的令牌") {
+                NavigationLink {
                     TokensView()
+                } label: {
+                    Label("管理我的令牌", systemImage: "key")
                 }
             }
 
             Section("日志") {
-                NavigationLink("使用日志") {
+                NavigationLink {
                     LogsView()
+                } label: {
+                    Label("使用日志", systemImage: "doc.text")
                 }
             }
         }
@@ -106,6 +110,7 @@ private struct UserHomeContentView: View {
         .toolbar {
             Button("刷新") { Task { await viewModel.load() } }
         }
+        .adminListChrome()
     }
 
     private func formatPrice(_ value: Double) -> String {

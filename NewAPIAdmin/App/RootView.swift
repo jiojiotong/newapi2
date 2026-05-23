@@ -13,6 +13,7 @@ public struct RootView: View {
                 ServerLoginView()
             }
         }
+        .adminScreenBackground()
         .task {
             await sessionStore.restoreSessionIfPossible()
         }

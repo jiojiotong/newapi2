@@ -46,10 +46,16 @@ extension View {
     func adminEditableField() -> some View {
         #if os(iOS)
         self
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(Color(uiColor: .systemGray6))
-            .cornerRadius(8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.adminSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.adminStroke, lineWidth: 1)
+            )
         #else
         self
         #endif

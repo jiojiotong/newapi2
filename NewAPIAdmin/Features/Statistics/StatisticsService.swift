@@ -70,6 +70,11 @@ final class StatisticsService {
         try await client.get("/api/pricing")
     }
 
+    /// Get performance metrics summary (public or UserAuth)
+    func fetchPerfSummary() async throws -> PerfSummaryResult {
+        try await client.get("/api/perf-metrics/summary")
+    }
+
     /// Get model pricing options (requires Root)
     func fetchPricingOptions() async throws -> [String: String] {
         let options: [OptionItem] = try await client.get("/api/option/")
@@ -98,5 +103,40 @@ final class StatisticsService {
         }
 
         return result
+    }
+}
+
+struct PerfSummaryResult: Decodable {
+    let models: [PerfModelSummary]
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        models = (try? container.decode([PerfModelSummary].self, forKey: .models)) ?? []
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case models
+    }
+}
+
+struct PerfModelSummary: Decodable {
+    let modelName: String
+    let avgLatencyMs: Int
+    let successRate: Double
+    let avgTps: Double
+
+    enum CodingKeys: String, CodingKey {
+        case modelName = "model_name"
+        case avgLatencyMs = "avg_latency_ms"
+        case successRate = "success_rate"
+        case avgTps = "avg_tps"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        modelName = (try? container.decode(String.self, forKey: .modelName)) ?? ""
+        avgLatencyMs = (try? container.decode(Int.self, forKey: .avgLatencyMs)) ?? 0
+        successRate = (try? container.decode(Double.self, forKey: .successRate)) ?? 0
+        avgTps = (try? container.decode(Double.self, forKey: .avgTps)) ?? 0
     }
 }

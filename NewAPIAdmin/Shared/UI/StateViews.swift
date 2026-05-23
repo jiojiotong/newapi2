@@ -4,12 +4,16 @@ struct LoadingStateView: View {
     let title: String
 
     var body: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-            Text(title)
-                .foregroundColor(Color.secondary)
+        AdminSurfaceCard {
+            VStack(spacing: 12) {
+                ProgressView()
+                Text(title)
+                    .foregroundColor(Color.secondary)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -19,19 +23,22 @@ struct EmptyStateView: View {
     var systemImage = "tray"
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(Font.largeTitle)
-                .foregroundColor(Color.secondary)
-            Text(title)
-                .font(Font.headline)
-            Text(message)
-                .font(Font.body)
-                .foregroundColor(Color.secondary)
-                .multilineTextAlignment(TextAlignment.center)
+        AdminSurfaceCard {
+            VStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(Font.largeTitle)
+                    .foregroundColor(Color.accentColor)
+                Text(title)
+                    .font(Font.headline)
+                Text(message)
+                    .font(Font.body)
+                    .foregroundColor(Color.secondary)
+                    .multilineTextAlignment(TextAlignment.center)
+            }
+            .frame(maxWidth: .infinity)
         }
         .padding()
-        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -40,19 +47,22 @@ struct ErrorStateView: View {
     var retry: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(Font.largeTitle)
-                .foregroundColor(Color.orange)
-            Text(message)
-                .multilineTextAlignment(TextAlignment.center)
-                .foregroundColor(Color.secondary)
-            if let retry {
-                Button("重试", action: retry)
+        AdminSurfaceCard {
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(Font.largeTitle)
+                    .foregroundColor(Color.orange)
+                Text(message)
+                    .multilineTextAlignment(TextAlignment.center)
+                    .foregroundColor(Color.secondary)
+                if let retry {
+                    Button("重试", action: retry)
+                }
             }
+            .frame(maxWidth: .infinity)
         }
         .padding()
-        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -60,18 +70,21 @@ struct PermissionStateView: View {
     let message: String
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "lock.trianglebadge.exclamationmark")
-                .font(Font.largeTitle)
-                .foregroundColor(Color.orange)
-            Text("权限不足")
-                .font(Font.headline)
-            Text(message)
-                .font(Font.body)
-                .foregroundColor(Color.secondary)
-                .multilineTextAlignment(TextAlignment.center)
+        AdminSurfaceCard {
+            VStack(spacing: 12) {
+                Image(systemName: "lock.trianglebadge.exclamationmark")
+                    .font(Font.largeTitle)
+                    .foregroundColor(Color.orange)
+                Text("权限不足")
+                    .font(Font.headline)
+                Text(message)
+                    .font(Font.body)
+                    .foregroundColor(Color.secondary)
+                    .multilineTextAlignment(TextAlignment.center)
+            }
+            .frame(maxWidth: .infinity)
         }
         .padding()
-        .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

@@ -192,6 +192,7 @@ struct ChannelFormView: View {
                 await loadChannelPricing()
             }
         }
+        .adminFormChrome()
     }
 
     private func loadFromChannel() {
@@ -403,6 +404,7 @@ private struct ChannelModelPriceEditView: View {
             inputText = formatValue(inputPrice)
             outputText = formatValue(outputPrice)
         }
+        .adminFormChrome()
     }
 
     private func formatValue(_ value: Double) -> String {

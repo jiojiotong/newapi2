@@ -100,6 +100,7 @@ private struct RedemptionsContentView: View {
         .confirmationDialog("确认清理失效兑换码？", isPresented: $confirmingClearInvalid, titleVisibility: .visible) {
             Button("清理", role: ButtonRole.destructive) { Task { await viewModel.clearInvalid() } }
         }
+        .adminListChrome()
     }
 
     private func formatExpiry(_ timestamp: Int?) -> String {

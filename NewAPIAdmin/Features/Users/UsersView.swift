@@ -94,6 +94,7 @@ private struct UsersContentView: View {
         .navigationDestination(isPresented: $showingCreate) {
             UserFormView(viewModel: viewModel, editingUser: nil)
         }
+        .adminListChrome()
     }
 
     private func roleName(_ role: Int?) -> String {

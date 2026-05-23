@@ -25,36 +25,17 @@ struct ChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar: key + model selection
-            HStack {
+            HStack(spacing: 10) {
                 Button {
                     showingKeyPicker = true
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "key")
-                        Text(viewModel.selectedKeyName.isEmpty ? "选择令牌" : viewModel.selectedKeyName)
-                            .lineLimit(1)
-                    }
-                    .font(Font.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.gray.opacity(0.15))
-                    .cornerRadius(6)
+                    controlChip(icon: "key", title: viewModel.selectedKeyName.isEmpty ? "选择令牌" : viewModel.selectedKeyName)
                 }
 
                 Button {
                     showingModelPicker = true
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "cpu")
-                        Text(viewModel.selectedModel.isEmpty ? "选择模型" : viewModel.selectedModel)
-                            .lineLimit(1)
-                    }
-                    .font(Font.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.gray.opacity(0.15))
-                    .cornerRadius(6)
+                    controlChip(icon: "cpu", title: viewModel.selectedModel.isEmpty ? "选择模型" : viewModel.selectedModel)
                 }
 
                 Spacer()
@@ -63,18 +44,19 @@ struct ChatView: View {
                     .labelsHidden()
                     .frame(width: 50)
                 Text(viewModel.streamEnabled ? "流式" : "普通")
-                    .font(Font.caption2)
+                    .font(Font.caption2.weight(.medium))
+                    .foregroundColor(.secondary)
 
                 Menu {
                     Button("对话模式") { showingImageMode = false }
                     Button("画图模式") { showingImageMode = true }
                 } label: {
-                    Image(systemName: showingImageMode ? "photo" : "bubble.left.and.bubble.right")
-                        .padding(6)
+                    controlChip(icon: showingImageMode ? "photo" : "bubble.left.and.bubble.right", title: showingImageMode ? "画图" : "对话")
                 }
             }
             .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
+            .background(Color.adminBackground)
 
             Divider()
 
@@ -123,43 +105,36 @@ struct ChatView: View {
             }
             #endif
 
-            // Input
-            HStack(spacing: 8) {
+            AdminSurfaceCard(cornerRadius: 22) {
+                HStack(spacing: 10) {
                 #if canImport(UIKit)
-                Button {
-                    showingAttachment = true
-                } label: {
-                    Image(systemName: "plus.circle")
-                        .font(Font.title3)
-                        .foregroundColor(Color.accentColor)
-                }
+                    Button {
+                        showingAttachment = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(Font.title3)
+                            .foregroundColor(Color.accentColor)
+                    }
                 #endif
 
-                TextField(showingImageMode ? "描述你想生成的图片..." : "输入消息...", text: $viewModel.inputText)
-                    .textFieldStyle(.roundedBorder)
+                    TextField(showingImageMode ? "描述你想生成的图片..." : "输入消息...", text: $viewModel.inputText)
+                        .textFieldStyle(.plain)
 
-                Button {
-                    Task { await send() }
-                } label: {
-                    if viewModel.isSending {
-                        ProgressView()
-                            .frame(width: 30, height: 30)
-                    } else {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(Font.title2)
+                    Button {
+                        Task { await send() }
+                    } label: {
+                        if viewModel.isSending {
+                            ProgressView()
+                                .frame(width: 30, height: 30)
+                        } else {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(Font.title2)
+                        }
                     }
+                    .foregroundColor(.accentColor)
+                    .disabled((showingImageMode ? viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty : (viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && viewModel.attachedImage == nil)) || viewModel.isSending || viewModel.selectedKey.isEmpty || viewModel.selectedModel.isEmpty)
                 }
-                .disabled((showingImageMode ? viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty : (viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && viewModel.attachedImage == nil)) || viewModel.isSending || viewModel.selectedKey.isEmpty || viewModel.selectedModel.isEmpty)
             }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.gray.opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-            )
             .padding(.horizontal)
 
             ContextUsageView(contextUsage: viewModel.contextUsage)
@@ -213,6 +188,7 @@ struct ChatView: View {
             }
         }
         #endif
+        .adminScreenBackground()
     }
 
     private func send() async {
@@ -221,6 +197,26 @@ struct ChatView: View {
         } else {
             await viewModel.sendMessage()
         }
+    }
+
+    private func controlChip(icon: String, title: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+            Text(title)
+                .lineLimit(1)
+        }
+        .font(.caption)
+        .foregroundColor(.primary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.adminSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.adminStroke, lineWidth: 1)
+        )
     }
 
     #if canImport(UIKit)
@@ -284,14 +280,14 @@ private struct MessageBubble: View {
                     Text(message.content)
                         .padding(.vertical, 11)
                         .padding(.horizontal, 14)
-                        .background(message.isUser ? Color.accentColor : Color.gray.opacity(0.12))
+                        .background(message.isUser ? Color.accentColor : Color.adminSurface)
                         .foregroundColor(message.isUser ? Color.white : Color.primary)
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .strokeBorder(message.isUser ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.06), lineWidth: 1)
+                                .strokeBorder(message.isUser ? Color.accentColor.opacity(0.14) : Color.adminStroke, lineWidth: 1)
                         }
-                        .shadow(color: Color.black.opacity(message.isUser ? 0.08 : 0.04), radius: 8, x: 0, y: 2)
+                        .shadow(color: Color.black.opacity(message.isUser ? 0.06 : 0.03), radius: 6, x: 0, y: 2)
                         .textSelection(.enabled)
                         .contextMenu {
                             Button("复制") { copyContent(message.content) }

@@ -61,6 +61,7 @@ struct ProfileEditView: View {
         }
         .navigationTitle("修改个人信息")
         .onAppear { loadCurrentInfo() }
+        .adminFormChrome()
     }
 
     private func loadCurrentInfo() {

@@ -40,6 +40,7 @@ struct RedeemView: View {
             }
         }
         .navigationTitle("兑换码")
+        .adminFormChrome()
     }
 
     private func redeem() async {

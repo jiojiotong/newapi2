@@ -59,6 +59,7 @@ struct MainTabView: View {
             }
             .tag(isAdmin ? 3 : 2)
         }
+        .tint(.accentColor)
     }
 
     private var tabSelection: Binding<Int> {

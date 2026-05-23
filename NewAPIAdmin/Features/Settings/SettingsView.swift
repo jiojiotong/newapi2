@@ -64,39 +64,51 @@ struct SettingsView: View {
             }
 
             Section("账号管理") {
-                NavigationLink("修改个人信息") {
+                NavigationLink {
                     ProfileEditView()
+                } label: {
+                    Label("修改个人信息", systemImage: "person.circle")
                 }
-                NavigationLink("充值") {
+                NavigationLink {
                     TopUpView()
+                } label: {
+                    Label("充值", systemImage: "creditcard")
                 }
-                NavigationLink("兑换码入口") {
+                NavigationLink {
                     RedeemView()
+                } label: {
+                    Label("兑换码入口", systemImage: "ticket")
                 }
-                NavigationLink("每日签到") {
+                NavigationLink {
                     CheckinView()
+                } label: {
+                    Label("每日签到", systemImage: "calendar.badge.checkmark")
                 }
             }
 
             Section("操作") {
-                Button("重新验证会话") {
+                Button {
                     Task { await sessionStore.revalidateSession() }
+                } label: {
+                    Label("重新验证会话", systemImage: "arrow.clockwise")
                 }
 
-                NavigationLink("添加其他服务器") {
+                NavigationLink {
                     AddServerView(onAdded: { savedServers = ProfileStorage().loadSavedServers() })
+                } label: {
+                    Label("添加其他服务器", systemImage: "plus.circle")
                 }
 
                 Button(role: ButtonRole.destructive) {
                     confirmingLogout = true
                 } label: {
-                    Text("退出登录")
+                    Label("退出登录", systemImage: "rectangle.portrait.and.arrow.right")
                 }
 
                 Button(role: ButtonRole.destructive) {
                     confirmingClearData = true
                 } label: {
-                    Text("清理本地数据")
+                    Label("清理本地数据", systemImage: "trash")
                 }
             }
 
@@ -117,6 +129,7 @@ struct SettingsView: View {
                 savedServers = []
             }
         }
+        .adminListChrome()
     }
 
     private func switchToServer(_ server: SavedServer) {
@@ -155,5 +168,6 @@ private struct AddServerView: View {
             }
         }
         .navigationTitle("添加服务器")
+        .adminFormChrome()
     }
 }

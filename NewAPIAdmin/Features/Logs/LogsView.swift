@@ -20,6 +20,7 @@ struct LogsView: View {
                 await viewModel.load()
             }
         }
+        .adminListChrome()
     }
 }
 

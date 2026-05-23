@@ -40,7 +40,14 @@ struct ManageView: View {
             } label: {
                 Label("兑换码", systemImage: "giftcard")
             }
+
+            NavigationLink {
+                LogsView()
+            } label: {
+                Label("使用日志", systemImage: "doc.text")
+            }
         }
         .navigationTitle("管理")
+        .adminListChrome()
     }
 }
