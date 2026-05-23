@@ -63,6 +63,93 @@ final class NewAPIAdminCoreTests: XCTestCase {
         try await service.create(DynamicObject(values: ["name": .string("test")]))
     }
 
+    func testChatServiceBuildsMultimodalRequestWhenImageIsAttached() {
+        let service = ChatService(baseURL: URL(string: "https://example.com")!, apiKey: "sk-test")
+        let messages = [
+            ChatMessage(role: "system", content: "You are helpful."),
+            ChatMessage(role: "user", content: "Describe this image")
+        ]
+
+        let requestMessages = service.buildRequestMessages(messages, imageBase64: "abc123")
+
+        XCTAssertEqual(requestMessages.count, 2)
+        guard case .multimodal(let multimodal)? = requestMessages.last else {
+            return XCTFail("Expected multimodal user message")
+        }
+        XCTAssertEqual(multimodal.role, "user")
+        XCTAssertEqual(multimodal.content.count, 2)
+        XCTAssertEqual(multimodal.content[0].type, "text")
+        XCTAssertEqual(multimodal.content[0].text, "Describe this image")
+        XCTAssertEqual(multimodal.content[1].type, "image_url")
+        XCTAssertEqual(multimodal.content[1].imageUrl?.url, "data:image/jpeg;base64,abc123")
+    }
+
+    func testChatServiceBuildsImageOnlyMessageWithoutEmptyText() {
+        let service = ChatService(baseURL: URL(string: "https://example.com")!, apiKey: "sk-test")
+        let messages = [
+            ChatMessage(role: "system", content: "You are helpful."),
+            ChatMessage(role: "user", content: "")
+        ]
+
+        let requestMessages = service.buildRequestMessages(messages, imageBase64: "abc123")
+
+        XCTAssertEqual(requestMessages.count, 2)
+        guard case .multimodal(let multimodal)? = requestMessages.last else {
+            return XCTFail("Expected multimodal user message")
+        }
+        XCTAssertEqual(multimodal.content.count, 1)
+        XCTAssertNil(multimodal.content[0].text)
+        XCTAssertEqual(multimodal.content[0].type, "image_url")
+    }
+
+    func testChatHistorySaveUpsertsSingleConversation() {
+        UserDefaults.standard.removeObject(forKey: "chat_history")
+
+        let viewModel = ChatViewModel()
+        viewModel.selectedModel = "gpt-4o"
+        viewModel.chatHistory = [ChatMessage(role: "user", content: "Hello")]
+
+        viewModel.saveCurrentToHistory()
+        viewModel.chatHistory.append(ChatMessage(role: "assistant", content: "Hi"))
+        viewModel.saveCurrentToHistory()
+
+        XCTAssertEqual(viewModel.savedConversations.count, 1)
+        XCTAssertEqual(viewModel.savedConversations.first?.messages.count, 2)
+        XCTAssertEqual(viewModel.savedConversations.first?.messages.last?.content, "Hi")
+    }
+
+    func testChatMemoriesLoadFromDefaults() {
+        UserDefaults.standard.removeObject(forKey: "chat_memories")
+        let memories = [
+            MemoryItem(id: "1", content: "Prefer short replies", enabled: true),
+            MemoryItem(id: "2", content: "Use Chinese", enabled: false)
+        ]
+        let data = try! JSONEncoder().encode(memories)
+        UserDefaults.standard.set(data, forKey: "chat_memories")
+
+        let viewModel = ChatViewModel()
+        viewModel.loadMemories()
+
+        XCTAssertEqual(viewModel.memories.count, 2)
+        XCTAssertEqual(viewModel.memories.first?.content, "Prefer short replies")
+    }
+
+    func testImageResponseDecodesBase64Payload() throws {
+        let data = Data("""
+        {"data": [{"b64_json": "abc123"}]}
+        """.utf8)
+        let response = try JSONDecoder().decode(ImageResponse.self, from: data)
+        XCTAssertEqual(response.data?.first?.b64Json, "abc123")
+    }
+
+    func testServerErrorResponseDecodesMessage() throws {
+        let data = Data("""
+        {"error": {"message": "nope"}}
+        """.utf8)
+        let response = try JSONDecoder().decode(ServerErrorResponse.self, from: data)
+        XCTAssertEqual(response.error?.message, "nope")
+    }
+
     func testVisualPricingEditorParsesModelRows() {
         // Verify that PricingViewModel can parse JSON options into model rows
         let json = "{\"gpt-4\":15,\"gpt-4o\":1.25}"

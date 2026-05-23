@@ -1,11 +1,25 @@
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+typealias PlatformImage = UIImage
+#elseif canImport(AppKit)
+import AppKit
+typealias PlatformImage = NSImage
+#endif
+
 struct ChatView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @StateObject private var viewModel = ChatViewModel()
     @State private var showingKeyPicker = false
     @State private var showingModelPicker = false
     @State private var showingImageMode = false
+    @State private var showingHistory = false
+    @State private var showingMemory = false
+    #if canImport(UIKit)
+    @State private var showingAttachment = false
+    @State private var showingPhotoPicker = false
+    #endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,6 +57,12 @@ struct ChatView: View {
 
                 Spacer()
 
+                Toggle("", isOn: $viewModel.streamEnabled)
+                    .labelsHidden()
+                    .frame(width: 50)
+                Text(viewModel.streamEnabled ? "流式" : "普通")
+                    .font(Font.caption2)
+
                 Menu {
                     Button("对话模式") { showingImageMode = false }
                     Button("画图模式") { showingImageMode = true }
@@ -76,8 +96,51 @@ struct ChatView: View {
 
             Divider()
 
+            // Context count
+            if !viewModel.chatHistory.isEmpty {
+                Text("\(viewModel.chatHistory.count) 条上下文")
+                    .font(Font.caption2)
+                    .foregroundColor(Color.secondary)
+                    .padding(.top, 4)
+            }
+
+            #if canImport(UIKit)
+            if let img = viewModel.attachedImage {
+                HStack {
+                    Image(uiImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 50, height: 50)
+                        .cornerRadius(6)
+                        .clipped()
+                    Text("已附加图片")
+                        .font(Font.caption)
+                        .foregroundColor(Color.secondary)
+                    Spacer()
+                    Button {
+                        viewModel.attachedImage = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(Color.secondary)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 4)
+            }
+            #endif
+
             // Input
             HStack(spacing: 8) {
+                #if canImport(UIKit)
+                Button {
+                    showingAttachment = true
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(Font.title3)
+                        .foregroundColor(Color.accentColor)
+                }
+                #endif
+
                 TextField(showingImageMode ? "描述你想生成的图片..." : "输入消息...", text: $viewModel.inputText)
                     .textFieldStyle(.roundedBorder)
 
@@ -92,12 +155,14 @@ struct ChatView: View {
                             .font(Font.title2)
                     }
                 }
-                .disabled(viewModel.inputText.isEmpty || viewModel.isSending || viewModel.selectedKey.isEmpty)
+                .disabled((showingImageMode ? viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty : (viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && viewModel.attachedImage == nil)) || viewModel.isSending || viewModel.selectedKey.isEmpty || viewModel.selectedModel.isEmpty)
             }
             .padding()
         }
         .navigationTitle(showingImageMode ? "画图" : "对话")
         .toolbar {
+            Button("记忆") { showingMemory = true }
+            Button("历史") { showingHistory = true }
             Button("清空") { viewModel.clearMessages() }
         }
         .task {
@@ -106,6 +171,8 @@ struct ChatView: View {
             }
             let client = try? sessionStore.activeClient()
             viewModel.setSessionClient(client)
+            viewModel.loadHistory()
+            viewModel.loadMemories()
             await viewModel.loadTokens(client: client)
         }
         .sheet(isPresented: $showingKeyPicker) {
@@ -114,6 +181,21 @@ struct ChatView: View {
         .sheet(isPresented: $showingModelPicker) {
             ModelPickerView(viewModel: viewModel)
         }
+        .sheet(isPresented: $showingHistory) {
+            ChatHistoryView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingMemory) {
+            MemoryView(viewModel: viewModel)
+        }
+        #if canImport(UIKit)
+        .confirmationDialog("添加附件", isPresented: $showingAttachment, titleVisibility: .visible) {
+            Button("选择图片") { showingPhotoPicker = true }
+            Button("取消", role: .cancel) {}
+        }
+        .sheet(isPresented: $showingPhotoPicker) {
+            ImagePicker(image: $viewModel.attachedImage)
+        }
+        #endif
     }
 
     private func send() async {
@@ -135,13 +217,25 @@ private struct MessageBubble: View {
             if message.isUser { Spacer() }
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
                 if let imageURL = message.imageURL {
-                    AsyncImage(url: URL(string: imageURL)) { image in
-                        image.resizable().aspectRatio(contentMode: .fit)
-                    } placeholder: {
-                        ProgressView()
+                    if imageURL.hasPrefix("data:") {
+                        if let image = localImage(from: imageURL) {
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                        } else {
+                            ProgressView()
+                        }
+                        .frame(maxWidth: 250, maxHeight: 250)
+                        .cornerRadius(12)
+                    } else {
+                        AsyncImage(url: URL(string: imageURL)) { image in
+                            image.resizable().aspectRatio(contentMode: .fit)
+                        } placeholder: {
+                            ProgressView()
+                        }
+                        .frame(maxWidth: 250, maxHeight: 250)
+                        .cornerRadius(12)
                     }
-                    .frame(maxWidth: 250, maxHeight: 250)
-                    .cornerRadius(12)
                 }
                 if !message.content.isEmpty {
                     Text(message.content)
@@ -154,6 +248,23 @@ private struct MessageBubble: View {
             .frame(maxWidth: 280, alignment: message.isUser ? .trailing : .leading)
             if !message.isUser { Spacer() }
         }
+    }
+
+    private func localImage(from imageURL: String) -> Image? {
+        guard let base64Part = imageURL.split(separator: ",", maxSplits: 1, omittingEmptySubsequences: true).last,
+              let data = Data(base64Encoded: String(base64Part)) else {
+            return nil
+        }
+        #if canImport(UIKit)
+        if let uiImage = UIImage(data: data) {
+            return Image(uiImage: uiImage)
+        }
+        #elseif canImport(AppKit)
+        if let nsImage = NSImage(data: data) {
+            return Image(nsImage: nsImage)
+        }
+        #endif
+        return nil
     }
 }
 
@@ -173,8 +284,9 @@ private struct KeyPickerView: View {
                 ForEach(viewModel.availableTokens) { token in
                     Button {
                         Task {
-                            await viewModel.selectToken(token)
-                            dismiss()
+                            if await viewModel.selectToken(token) {
+                                dismiss()
+                            }
                         }
                     } label: {
                         HStack {
@@ -256,10 +368,13 @@ final class ChatViewModel: ObservableObject {
     @Published var selectedKeyName = ""
     @Published var availableTokens: [APIToken] = []
     @Published var availableModels: [String] = []
+    @Published var streamEnabled = true
+    @Published var memories: [MemoryItem] = []
     var baseURL: URL?
 
     private var chatService: ChatService?
-    private var chatHistory: [ChatMessage] = []
+    var chatHistory: [ChatMessage] = []
+    @Published var attachedImage: PlatformImage?
 
     func loadTokens(client: NewAPIClient?) async {
         guard let client else { return }
@@ -270,12 +385,11 @@ final class ChatViewModel: ObservableObject {
         } catch {}
     }
 
-    func selectToken(_ token: APIToken) async {
-        selectedKeyName = token.name
-        guard let baseURL else { return }
+    func selectToken(_ token: APIToken) async -> Bool {
+        guard let baseURL else { return false }
         guard let client = sessionClient else {
             messages.append(DisplayMessage(content: "会话已失效，请重新登录", isUser: false, imageURL: nil))
-            return
+            return false
         }
 
         // Get full key from server (list returns masked keys)
@@ -284,9 +398,21 @@ final class ChatViewModel: ObservableObject {
             let fullKey = try await service.getFullKey(id: token.id)
             selectedKey = "sk-\(fullKey)"
             chatService = ChatService(baseURL: baseURL, apiKey: selectedKey)
+            availableModels = []
+            selectedModel = ""
             availableModels = try await chatService?.fetchModels() ?? []
+            if selectedModel.isEmpty || !availableModels.contains(selectedModel) {
+                selectedModel = availableModels.first ?? ""
+            }
+            selectedKeyName = token.name
+            return true
         } catch {
+            availableModels = []
+            selectedModel = ""
+            selectedKey = ""
+            chatService = nil
             messages.append(DisplayMessage(content: "获取令牌失败：\(error.localizedDescription)", isUser: false, imageURL: nil))
+            return false
         }
     }
 
@@ -297,27 +423,58 @@ final class ChatViewModel: ObservableObject {
     }
 
     func sendMessage() async {
-        guard let service = chatService, !inputText.isEmpty else { return }
-        let userText = inputText
+        guard let service = chatService else { return }
+        guard !selectedModel.isEmpty else { return }
+        let userText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !userText.isEmpty || attachedImage != nil else { return }
+        let imageBase64 = attachedImageBase64()
+        let userDisplayText = userText.isEmpty ? (attachedImage != nil ? "已附加图片" : "") : userText
+        let historyText = userText
         inputText = ""
-        messages.append(DisplayMessage(content: userText, isUser: true, imageURL: nil))
-        chatHistory.append(ChatMessage(role: "user", content: userText))
+        #if canImport(UIKit)
+        attachedImage = nil
+        #endif
+        messages.append(DisplayMessage(content: userDisplayText, isUser: true, imageURL: nil))
+        chatHistory.append(ChatMessage(role: "user", content: historyText))
 
         isSending = true
         defer { isSending = false }
 
-        do {
-            let reply = try await service.sendMessage(model: selectedModel, messages: chatHistory)
-            chatHistory.append(ChatMessage(role: "assistant", content: reply))
-            messages.append(DisplayMessage(content: reply, isUser: false, imageURL: nil))
-        } catch {
-            messages.append(DisplayMessage(content: "错误：\(error.localizedDescription)", isUser: false, imageURL: nil))
+        // Build messages with memory as system prompt
+        let messagesWithMemory = buildMessagesWithMemory()
+
+        if streamEnabled {
+            // Stream mode: show response token by token
+            var fullReply = ""
+            let replyIndex = messages.count
+            messages.append(DisplayMessage(content: "", isUser: false, imageURL: nil))
+
+            do {
+                try await service.sendMessageStream(model: selectedModel, messages: messagesWithMemory, imageBase64: imageBase64) { chunk in
+                    fullReply += chunk
+                    messages[replyIndex] = DisplayMessage(content: fullReply, isUser: false, imageURL: nil)
+                }
+                chatHistory.append(ChatMessage(role: "assistant", content: fullReply))
+                saveCurrentToHistory()
+            } catch {
+                messages[replyIndex] = DisplayMessage(content: "错误：\(error.localizedDescription)", isUser: false, imageURL: nil)
+            }
+        } else {
+            // Normal mode: wait for full response
+            do {
+                let reply = try await service.sendMessage(model: selectedModel, messages: messagesWithMemory, imageBase64: imageBase64)
+                chatHistory.append(ChatMessage(role: "assistant", content: reply))
+                messages.append(DisplayMessage(content: reply, isUser: false, imageURL: nil))
+                saveCurrentToHistory()
+            } catch {
+                messages.append(DisplayMessage(content: "错误：\(error.localizedDescription)", isUser: false, imageURL: nil))
+            }
         }
     }
 
     func generateImage() async {
-        guard let service = chatService, !inputText.isEmpty else { return }
-        let prompt = inputText
+        let prompt = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let service = chatService, !selectedModel.isEmpty, !prompt.isEmpty else { return }
         inputText = ""
         messages.append(DisplayMessage(content: prompt, isUser: true, imageURL: nil))
 
@@ -337,7 +494,280 @@ final class ChatViewModel: ObservableObject {
     }
 
     func clearMessages() {
+        // Save current conversation to history before clearing
+        if !messages.isEmpty {
+            saveCurrentToHistory()
+        }
         messages = []
         chatHistory = []
+        currentConversationID = nil
+        #if canImport(UIKit)
+        attachedImage = nil
+        #endif
+    }
+
+    // MARK: - Memory
+
+    private func buildMessagesWithMemory() -> [ChatMessage] {
+        var result: [ChatMessage] = []
+        let activeMemories = memories.filter { $0.enabled }
+        if !activeMemories.isEmpty {
+            let memoryContent = activeMemories.map { $0.content }.joined(separator: "\n")
+            result.append(ChatMessage(role: "system", content: memoryContent))
+        }
+        result.append(contentsOf: chatHistory)
+        return result
+    }
+
+    func loadMemories() {
+        guard let data = UserDefaults.standard.data(forKey: "chat_memories"),
+              let items = try? JSONDecoder().decode([MemoryItem].self, from: data) else {
+            memories = []
+            return
+        }
+        memories = items
+    }
+
+    func saveMemories() {
+        if let data = try? JSONEncoder().encode(memories) {
+            UserDefaults.standard.set(data, forKey: "chat_memories")
+        }
+    }
+
+    func addMemory(_ content: String) {
+        let item = MemoryItem(id: UUID().uuidString, content: content, enabled: true)
+        memories.append(item)
+        saveMemories()
+    }
+
+    func deleteMemory(_ item: MemoryItem) {
+        memories.removeAll { $0.id == item.id }
+        saveMemories()
+    }
+
+    func toggleMemory(_ item: MemoryItem) {
+        if let index = memories.firstIndex(where: { $0.id == item.id }) {
+            memories[index].enabled.toggle()
+            saveMemories()
+        }
+    }
+
+    // MARK: - History
+
+    @Published var savedConversations: [SavedConversation] = []
+
+    func loadHistory() {
+        guard let data = UserDefaults.standard.data(forKey: "chat_history"),
+              let conversations = try? JSONDecoder().decode([SavedConversation].self, from: data) else {
+            savedConversations = []
+            return
+        }
+        savedConversations = conversations
+    }
+
+    func saveCurrentToHistory() {
+        guard !chatHistory.isEmpty else { return }
+        let conversationID = currentConversationID ?? UUID().uuidString
+        currentConversationID = conversationID
+        let conversation = SavedConversation(
+            id: conversationID,
+            title: conversationTitle(),
+            model: selectedModel,
+            messages: chatHistory,
+            date: Date()
+        )
+        if let index = savedConversations.firstIndex(where: { $0.id == conversationID }) {
+            savedConversations[index] = conversation
+        } else {
+            savedConversations.insert(conversation, at: 0)
+            // Keep max 50 conversations
+            if savedConversations.count > 50 {
+                savedConversations = Array(savedConversations.prefix(50))
+            }
+        }
+        if let data = try? JSONEncoder().encode(savedConversations) {
+            UserDefaults.standard.set(data, forKey: "chat_history")
+        }
+    }
+
+    func loadConversation(_ conversation: SavedConversation) {
+        currentConversationID = conversation.id
+        chatHistory = conversation.messages
+        messages = conversation.messages.map { msg in
+            DisplayMessage(
+                content: msg.content.isEmpty && msg.role == "user" ? "已附加图片" : msg.content,
+                isUser: msg.role == "user",
+                imageURL: nil
+            )
+        }
+        if !conversation.model.isEmpty {
+            selectedModel = conversation.model
+        }
+        inputText = ""
+        #if canImport(UIKit)
+        attachedImage = nil
+        #endif
+    }
+
+    func deleteConversation(_ conversation: SavedConversation) {
+        savedConversations.removeAll { $0.id == conversation.id }
+        if currentConversationID == conversation.id {
+            currentConversationID = nil
+        }
+        if let data = try? JSONEncoder().encode(savedConversations) {
+            UserDefaults.standard.set(data, forKey: "chat_history")
+        }
+    }
+
+    private var currentConversationID: String?
+
+    private func attachedImageBase64() -> String? {
+        #if canImport(UIKit)
+        guard let attachedImage,
+              let data = attachedImage.jpegData(compressionQuality: 0.9) else {
+            return nil
+        }
+        return data.base64EncodedString()
+        #else
+        return nil
+        #endif
+    }
+
+    private func conversationTitle() -> String {
+        if let firstNonEmpty = chatHistory.first(where: { $0.role == "user" && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+            return String(firstNonEmpty.content.prefix(30))
+        }
+        return chatHistory.contains(where: { $0.role == "user" }) ? "图片对话" : "对话"
+    }
+}
+
+// MARK: - History Models
+
+struct SavedConversation: Codable, Identifiable {
+    let id: String
+    let title: String
+    let model: String
+    let messages: [ChatMessage]
+    let date: Date
+}
+
+// MARK: - History View
+
+private struct ChatHistoryView: View {
+    @ObservedObject var viewModel: ChatViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if viewModel.savedConversations.isEmpty {
+                    Text("暂无历史记录")
+                        .foregroundColor(Color.secondary)
+                }
+                ForEach(viewModel.savedConversations) { conversation in
+                    Button {
+                        viewModel.loadConversation(conversation)
+                        dismiss()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(conversation.title)
+                                .font(Font.subheadline)
+                                .foregroundColor(Color.primary)
+                                .lineLimit(1)
+                            HStack {
+                                if !conversation.model.isEmpty {
+                                    Text(conversation.model)
+                                }
+                                Text(formatDate(conversation.date))
+                            }
+                            .font(Font.caption)
+                            .foregroundColor(Color.secondary)
+                        }
+                    }
+                }
+                .onDelete { indexSet in
+                    let toDelete = indexSet.map { viewModel.savedConversations[$0] }
+                    for conv in toDelete {
+                        viewModel.deleteConversation(conv)
+                    }
+                }
+            }
+            .navigationTitle("历史记录")
+            .toolbar {
+                Button("关闭") { dismiss() }
+            }
+            .onAppear { viewModel.loadHistory() }
+        }
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM-dd HH:mm"
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Memory Models & View
+
+struct MemoryItem: Codable, Identifiable {
+    let id: String
+    var content: String
+    var enabled: Bool
+}
+
+private struct MemoryView: View {
+    @ObservedObject var viewModel: ChatViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var newMemory = ""
+    @State private var showingAdd = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section(footer: Text("记忆会作为系统提示词注入到每次对话中，帮助模型了解你的偏好和背景信息")) {
+                    if viewModel.memories.isEmpty {
+                        Text("暂无记忆，点击右上角添加")
+                            .foregroundColor(Color.secondary)
+                    }
+                    ForEach(viewModel.memories) { item in
+                        HStack {
+                            Button {
+                                viewModel.toggleMemory(item)
+                            } label: {
+                                Image(systemName: item.enabled ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(item.enabled ? Color.accentColor : Color.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            Text(item.content)
+                                .font(Font.subheadline)
+                                .foregroundColor(item.enabled ? Color.primary : Color.secondary)
+                        }
+                    }
+                    .onDelete { indexSet in
+                        let toDelete = indexSet.map { viewModel.memories[$0] }
+                        for item in toDelete {
+                            viewModel.deleteMemory(item)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("记忆")
+            .toolbar {
+                Button("添加") { showingAdd = true }
+                Button("关闭") { dismiss() }
+            }
+            .alert("添加记忆", isPresented: $showingAdd) {
+                TextField("例如：我是一名 iOS 开发者", text: $newMemory)
+                Button("添加") {
+                    let content = newMemory.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !content.isEmpty {
+                        viewModel.addMemory(content)
+                    }
+                    newMemory = ""
+                }
+                Button("取消", role: .cancel) { newMemory = "" }
+            }
+            .onAppear { viewModel.loadMemories() }
+        }
     }
 }
