@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct TopUpView: View {
     @EnvironmentObject private var sessionStore: SessionStore
