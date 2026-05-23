@@ -208,6 +208,15 @@ struct PricingItem: Decodable {
         case modelPrice = "model_price"
         case completionRatio = "completion_ratio"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        modelName = (try? container.decode(String.self, forKey: .modelName)) ?? ""
+        quotaType = (try? container.decode(Int.self, forKey: .quotaType)) ?? 0
+        modelRatio = (try? container.decode(Double.self, forKey: .modelRatio)) ?? 1
+        modelPrice = (try? container.decode(Double.self, forKey: .modelPrice)) ?? 0
+        completionRatio = (try? container.decode(Double.self, forKey: .completionRatio)) ?? 1
+    }
 }
 
 struct UserSelfInfo: Decodable {
