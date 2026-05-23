@@ -218,12 +218,14 @@ private struct MessageBubble: View {
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
                 if let imageURL = message.imageURL {
                     if imageURL.hasPrefix("data:") {
-                        if let image = localImage(from: imageURL) {
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                        } else {
-                            ProgressView()
+                        Group {
+                            if let image = localImage(from: imageURL) {
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            } else {
+                                ProgressView()
+                            }
                         }
                         .frame(maxWidth: 250, maxHeight: 250)
                         .cornerRadius(12)
@@ -452,7 +454,7 @@ final class ChatViewModel: ObservableObject {
             do {
                 try await service.sendMessageStream(model: selectedModel, messages: messagesWithMemory, imageBase64: imageBase64) { chunk in
                     fullReply += chunk
-                    messages[replyIndex] = DisplayMessage(content: fullReply, isUser: false, imageURL: nil)
+                    self.messages[replyIndex] = DisplayMessage(content: fullReply, isUser: false, imageURL: nil)
                 }
                 chatHistory.append(ChatMessage(role: "assistant", content: fullReply))
                 saveCurrentToHistory()
