@@ -39,7 +39,7 @@ struct RedeemView: View {
                 .disabled(redeemCode.trimmingCharacters(in: .whitespaces).isEmpty || isRedeeming)
             }
         }
-        .navigationTitle("兑换额度")
+        .navigationTitle("兑换码")
     }
 
     private func redeem() async {

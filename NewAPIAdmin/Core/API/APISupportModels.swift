@@ -134,4 +134,79 @@ extension KeyedDecodingContainer {
         }
         return nil
     }
+
+    func decodeBoolIfPresent(_ keys: String...) -> Bool? {
+        for key in keys {
+            guard let codingKey = Key(stringValue: key) else { continue }
+            if let value = try? decodeIfPresent(Bool.self, forKey: codingKey) {
+                return value
+            }
+            if let value = try? decodeIfPresent(Int.self, forKey: codingKey) {
+                return value != 0
+            }
+            if let value = try? decodeIfPresent(String.self, forKey: codingKey) {
+                switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+                case "1", "true", "yes", "y", "on":
+                    return true
+                case "0", "false", "no", "n", "off":
+                    return false
+                default:
+                    break
+                }
+            }
+        }
+        return nil
+    }
+}
+
+struct GroupNamesResponse: Decodable {
+    let names: [String]
+
+    init(from decoder: Decoder) throws {
+        if var unkeyed = try? decoder.unkeyedContainer() {
+            var values: [String] = []
+            while !unkeyed.isAtEnd {
+                if let name = try? unkeyed.decode(String.self) {
+                    values.append(name)
+                    continue
+                }
+                if let item = try? unkeyed.decode(GroupNameItem.self), let name = item.name {
+                    values.append(name)
+                    continue
+                }
+                _ = try? unkeyed.decode(AnyJSONValue.self)
+            }
+            names = Self.unique(values)
+            return
+        }
+
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        for key in ["data", "items", "list", "rows"] {
+            guard let codingKey = DynamicCodingKey(stringValue: key) else { continue }
+            if let values = try? container.decode([String].self, forKey: codingKey) {
+                names = Self.unique(values)
+                return
+            }
+            if let values = try? container.decode([GroupNameItem].self, forKey: codingKey) {
+                names = Self.unique(values.compactMap(\.name))
+                return
+            }
+        }
+
+        names = Self.unique(container.allKeys.map(\.stringValue))
+    }
+
+    private static func unique(_ values: [String]) -> [String] {
+        var seen: Set<String> = []
+        return values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.filter { seen.insert($0).inserted }
+    }
+}
+
+private struct GroupNameItem: Decodable {
+    let name: String?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        name = container.decodeStringIfPresent("name", "group_name", "groupName", "group", "value", "key")
+    }
 }

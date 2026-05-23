@@ -115,7 +115,7 @@ struct CheckinView: View {
 
         do {
             let response: CheckinStatusResponse = try await client.get("/api/user/checkin")
-            isCheckinEnabled = response.enabled
+            isCheckinEnabled = response.enabled || response.stats != nil || response.minQuota > 0 || response.maxQuota > 0
             minQuota = response.minQuota
             maxQuota = response.maxQuota
             if let stats = response.stats {
@@ -125,8 +125,19 @@ struct CheckinView: View {
                 monthCheckins = stats.checkinCount
                 records = stats.records
             }
+        } catch let error as NewAPIError {
+            // Server returned an error message (e.g., "签到功能未启用")
+            if case .serverMessage(let msg) = error, msg.contains("未启用") {
+                isCheckinEnabled = false
+            } else {
+                isCheckinEnabled = false
+                resultMessage = error.localizedDescription
+                isError = true
+            }
         } catch {
             isCheckinEnabled = false
+            resultMessage = error.localizedDescription
+            isError = true
         }
     }
 
@@ -184,6 +195,8 @@ struct CheckinStatusResponse: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case enabled
+        case checkin
+        case checkinEnabled = "checkin_enabled"
         case minQuota = "min_quota"
         case maxQuota = "max_quota"
         case stats
@@ -191,7 +204,7 @@ struct CheckinStatusResponse: Decodable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        enabled = (try? container.decode(Bool.self, forKey: .enabled)) ?? false
+        enabled = container.decodeBoolIfPresent("enabled", "checkin", "checkin_enabled", "checkinEnabled") ?? false
         minQuota = (try? container.decode(Int.self, forKey: .minQuota)) ?? 0
         maxQuota = (try? container.decode(Int.self, forKey: .maxQuota)) ?? 0
         stats = try? container.decode(CheckinStats.self, forKey: .stats)
@@ -207,18 +220,22 @@ struct CheckinStats: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case totalQuota = "total_quota"
+        case totalQuotaValue = "totalQuota"
         case totalCheckins = "total_checkins"
+        case totalCheckinsValue = "totalCheckins"
         case checkinCount = "checkin_count"
+        case checkinCountValue = "checkinCount"
         case checkedInToday = "checked_in_today"
+        case checkedInTodayValue = "checkedInToday"
         case records
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        totalQuota = (try? container.decode(Int.self, forKey: .totalQuota)) ?? 0
-        totalCheckins = (try? container.decode(Int.self, forKey: .totalCheckins)) ?? 0
-        checkinCount = (try? container.decode(Int.self, forKey: .checkinCount)) ?? 0
-        checkedInToday = (try? container.decode(Bool.self, forKey: .checkedInToday)) ?? false
+        totalQuota = container.decodeIntIfPresent("total_quota", "totalQuota") ?? 0
+        totalCheckins = container.decodeIntIfPresent("total_checkins", "totalCheckins") ?? 0
+        checkinCount = container.decodeIntIfPresent("checkin_count", "checkinCount") ?? 0
+        checkedInToday = container.decodeBoolIfPresent("checked_in_today", "checkedInToday") ?? false
         records = (try? container.decode([CheckinRecord].self, forKey: .records)) ?? []
     }
 }

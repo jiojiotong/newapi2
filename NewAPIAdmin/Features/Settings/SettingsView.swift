@@ -24,7 +24,9 @@ struct SettingsView: View {
             Section("当前服务器") {
                 LabeledContent("地址", value: currentServerURL)
                 LabeledContent("账号", value: sessionStore.adminUser?.username ?? "-")
-                LabeledContent("角色", value: roleText)
+                if sessionStore.adminUser?.isAdmin == true {
+                    LabeledContent("角色", value: roleText)
+                }
             }
 
             if savedServers.count > 1 {
@@ -65,7 +67,10 @@ struct SettingsView: View {
                 NavigationLink("修改个人信息") {
                     ProfileEditView()
                 }
-                NavigationLink("兑换额度") {
+                NavigationLink("充值") {
+                    TopUpView()
+                }
+                NavigationLink("兑换码入口") {
                     RedeemView()
                 }
                 NavigationLink("每日签到") {

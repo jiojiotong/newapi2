@@ -36,7 +36,8 @@ final class UserService {
     }
 
     func fetchGroups() async throws -> [String] {
-        try await client.get("/api/group/")
+        let response: GroupNamesResponse = try await client.get("/api/group/")
+        return response.names
     }
 
     func delete(id: Int) async throws {

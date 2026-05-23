@@ -63,6 +63,32 @@ final class NewAPIAdminCoreTests: XCTestCase {
         try await service.create(DynamicObject(values: ["name": .string("test")]))
     }
 
+    func testCheckinStatusResponseAcceptsAlternateEnabledFields() throws {
+        let data = Data("""
+        {"checkin_enabled":1,"min_quota":100,"max_quota":200,"stats":{"checkedInToday":true,"totalQuota":300,"totalCheckins":4,"checkinCount":2,"records":[]}}
+        """.utf8)
+
+        let response = try JSONDecoder().decode(CheckinStatusResponse.self, from: data)
+
+        XCTAssertTrue(response.enabled)
+        XCTAssertEqual(response.minQuota, 100)
+        XCTAssertEqual(response.maxQuota, 200)
+        XCTAssertEqual(response.stats?.totalQuota, 300)
+        XCTAssertEqual(response.stats?.totalCheckins, 4)
+        XCTAssertEqual(response.stats?.checkinCount, 2)
+        XCTAssertEqual(response.stats?.checkedInToday, true)
+    }
+
+    func testGroupNamesResponseDecodesArrayAndObjectForms() throws {
+        let arrayData = Data("[\"default\",\"beta\"]".utf8)
+        let arrayResponse = try JSONDecoder().decode(GroupNamesResponse.self, from: arrayData)
+        XCTAssertEqual(arrayResponse.names, ["default", "beta"])
+
+        let objectData = Data("{\"default\":{},\"beta\":{}}".utf8)
+        let objectResponse = try JSONDecoder().decode(GroupNamesResponse.self, from: objectData)
+        XCTAssertEqual(Set(objectResponse.names), Set(["default", "beta"]))
+    }
+
     func testChatServiceBuildsMultimodalRequestWhenImageIsAttached() {
         let service = ChatService(baseURL: URL(string: "https://example.com")!, apiKey: "sk-test")
         let messages = [

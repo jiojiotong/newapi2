@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if canImport(UIKit)
 import UIKit
@@ -19,6 +20,7 @@ struct ChatView: View {
     #if canImport(UIKit)
     @State private var showingAttachment = false
     @State private var showingPhotoPicker = false
+    @State private var showingFileImporter = false
     #endif
 
     var body: some View {
@@ -96,14 +98,6 @@ struct ChatView: View {
 
             Divider()
 
-            // Context count
-            if !viewModel.chatHistory.isEmpty {
-                Text("\(viewModel.chatHistory.count) 条上下文")
-                    .font(Font.caption2)
-                    .foregroundColor(Color.secondary)
-                    .padding(.top, 4)
-            }
-
             #if canImport(UIKit)
             if let img = viewModel.attachedImage {
                 HStack {
@@ -157,7 +151,20 @@ struct ChatView: View {
                 }
                 .disabled((showingImageMode ? viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty : (viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && viewModel.attachedImage == nil)) || viewModel.isSending || viewModel.selectedKey.isEmpty || viewModel.selectedModel.isEmpty)
             }
-            .padding()
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.gray.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+            )
+            .padding(.horizontal)
+
+            ContextUsageView(contextUsage: viewModel.contextUsage)
+                .padding(.horizontal)
+                .padding(.bottom, 4)
         }
         .navigationTitle(showingImageMode ? "画图" : "对话")
         .toolbar {
@@ -190,10 +197,20 @@ struct ChatView: View {
         #if canImport(UIKit)
         .confirmationDialog("添加附件", isPresented: $showingAttachment, titleVisibility: .visible) {
             Button("选择图片") { showingPhotoPicker = true }
+            Button("选择文件") { showingFileImporter = true }
             Button("取消", role: .cancel) {}
         }
         .sheet(isPresented: $showingPhotoPicker) {
             ImagePicker(image: $viewModel.attachedImage)
+        }
+        .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [.item], allowsMultipleSelection: false) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                importAttachment(from: url)
+            case .failure(let error):
+                viewModel.messages.append(DisplayMessage(content: "选择文件失败：\(error.localizedDescription)", isUser: false, imageURL: nil))
+            }
         }
         #endif
     }
@@ -205,6 +222,24 @@ struct ChatView: View {
             await viewModel.sendMessage()
         }
     }
+
+    #if canImport(UIKit)
+    private func importAttachment(from url: URL) {
+        let needsAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if needsAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        guard let data = try? Data(contentsOf: url), let image = PlatformImage(data: data) else {
+            viewModel.messages.append(DisplayMessage(content: "当前仅支持可识别的图片文件", isUser: false, imageURL: nil))
+            return
+        }
+
+        viewModel.attachedImage = image
+    }
+    #endif
 }
 
 // MARK: - Message Bubble
@@ -213,9 +248,15 @@ private struct MessageBubble: View {
     let message: DisplayMessage
 
     var body: some View {
-        HStack {
-            if message.isUser { Spacer() }
-            VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
+        HStack(alignment: .top, spacing: 8) {
+            if message.isUser {
+                Spacer(minLength: 40)
+            } else {
+                AssistantAvatar()
+                    .padding(.top, 2)
+            }
+
+            VStack(alignment: message.isUser ? .trailing : .leading, spacing: 6) {
                 if let imageURL = message.imageURL {
                     if imageURL.hasPrefix("data:") {
                         Group {
@@ -228,7 +269,7 @@ private struct MessageBubble: View {
                             }
                         }
                         .frame(maxWidth: 250, maxHeight: 250)
-                        .cornerRadius(12)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     } else {
                         AsyncImage(url: URL(string: imageURL)) { image in
                             image.resizable().aspectRatio(contentMode: .fit)
@@ -236,19 +277,32 @@ private struct MessageBubble: View {
                             ProgressView()
                         }
                         .frame(maxWidth: 250, maxHeight: 250)
-                        .cornerRadius(12)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                 }
                 if !message.content.isEmpty {
                     Text(message.content)
-                        .padding(10)
-                        .background(message.isUser ? Color.accentColor : Color.gray.opacity(0.2))
+                        .padding(.vertical, 11)
+                        .padding(.horizontal, 14)
+                        .background(message.isUser ? Color.accentColor : Color.gray.opacity(0.12))
                         .foregroundColor(message.isUser ? Color.white : Color.primary)
-                        .cornerRadius(12)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(message.isUser ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.06), lineWidth: 1)
+                        }
+                        .shadow(color: Color.black.opacity(message.isUser ? 0.08 : 0.04), radius: 8, x: 0, y: 2)
+                        .textSelection(.enabled)
+                        .contextMenu {
+                            Button("复制") { copyContent(message.content) }
+                        }
                 }
             }
             .frame(maxWidth: 280, alignment: message.isUser ? .trailing : .leading)
-            if !message.isUser { Spacer() }
+
+            if !message.isUser {
+                Spacer(minLength: 40)
+            }
         }
     }
 
@@ -267,6 +321,52 @@ private struct MessageBubble: View {
         }
         #endif
         return nil
+    }
+
+    private func copyContent(_ text: String) {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = text
+        #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #endif
+    }
+}
+
+private struct AssistantAvatar: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.accentColor.opacity(0.12))
+            Circle()
+                .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 1)
+            Image(systemName: "sparkles")
+                .font(Font.system(size: 12, weight: .semibold))
+                .foregroundColor(Color.accentColor)
+        }
+        .frame(width: 28, height: 28)
+        .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+    }
+}
+
+private struct ContextUsageView: View {
+    let contextUsage: ContextUsage?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "memorychip")
+                .font(Font.caption2)
+            if let contextUsage {
+                ProgressView(value: contextUsage.progress)
+                    .tint(Color.secondary)
+                Text("上下文约 \(contextUsage.percentage)%")
+            } else {
+                Text("上下文 --")
+            }
+            Spacer()
+        }
+        .font(Font.caption2)
+        .foregroundColor(Color.secondary)
     }
 }
 
@@ -319,23 +419,23 @@ private struct ModelPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
 
-    private var filteredModels: [String] {
+    private var filteredModels: [ModelInfo] {
         if searchText.isEmpty { return viewModel.availableModels }
-        return viewModel.availableModels.filter { $0.lowercased().contains(searchText.lowercased()) }
+        return viewModel.availableModels.filter { $0.id.lowercased().contains(searchText.lowercased()) }
     }
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(filteredModels, id: \.self) { model in
+                ForEach(filteredModels) { model in
                     Button {
-                        viewModel.selectedModel = model
+                        viewModel.selectedModel = model.id
                         dismiss()
                     } label: {
                         HStack {
-                            Text(model)
+                            Text(model.id)
                             Spacer()
-                            if viewModel.selectedModel == model {
+                            if viewModel.selectedModel == model.id {
                                 Image(systemName: "checkmark").foregroundColor(Color.accentColor)
                             }
                         }
@@ -360,6 +460,46 @@ struct DisplayMessage: Identifiable {
     let imageURL: String?
 }
 
+struct ContextUsage {
+    let usedTokens: Int
+    let limit: Int
+
+    var percentage: Int {
+        guard limit > 0 else { return 0 }
+        return Int((Double(usedTokens) / Double(limit)) * 100.0)
+    }
+
+    var progress: Double {
+        guard limit > 0 else { return 0 }
+        return min(Double(usedTokens) / Double(limit), 1)
+    }
+}
+
+private enum ModelContextCatalog {
+    static func limit(for modelName: String) -> Int? {
+        let lower = modelName.lowercased()
+        if lower.contains("gpt-4.1") || lower.contains("o4") {
+            return 1_000_000
+        }
+        if lower.contains("gpt-4o") || lower.contains("gpt-4-turbo") || lower.contains("gpt-4.5") {
+            return 128_000
+        }
+        if lower.contains("gpt-4") {
+            return 128_000
+        }
+        if lower.contains("claude-3") {
+            return 200_000
+        }
+        if lower.contains("gemini-1.5") || lower.contains("gemini-2") {
+            return 1_000_000
+        }
+        if lower.contains("deepseek") || lower.contains("qwen") || lower.contains("llama") || lower.contains("glm") {
+            return 128_000
+        }
+        return 128_000
+    }
+}
+
 @MainActor
 final class ChatViewModel: ObservableObject {
     @Published var messages: [DisplayMessage] = []
@@ -369,7 +509,7 @@ final class ChatViewModel: ObservableObject {
     @Published var selectedKey = ""
     @Published var selectedKeyName = ""
     @Published var availableTokens: [APIToken] = []
-    @Published var availableModels: [String] = []
+    @Published var availableModels: [ModelInfo] = []
     @Published var streamEnabled = true
     @Published var memories: [MemoryItem] = []
     var baseURL: URL?
@@ -403,8 +543,8 @@ final class ChatViewModel: ObservableObject {
             availableModels = []
             selectedModel = ""
             availableModels = try await chatService?.fetchModels() ?? []
-            if selectedModel.isEmpty || !availableModels.contains(selectedModel) {
-                selectedModel = availableModels.first ?? ""
+            if selectedModel.isEmpty || !availableModels.contains(where: { $0.id == selectedModel }) {
+                selectedModel = availableModels.first?.id ?? ""
             }
             selectedKeyName = token.name
             return true
@@ -422,6 +562,63 @@ final class ChatViewModel: ObservableObject {
 
     func setSessionClient(_ client: NewAPIClient?) {
         sessionClient = client
+    }
+
+    var contextUsage: ContextUsage? {
+        guard let limit = selectedModelContextLimit, limit > 0 else { return nil }
+        let used = estimatedContextTokens()
+        return ContextUsage(usedTokens: used, limit: limit)
+    }
+
+    private var selectedModelContextLimit: Int? {
+        if let model = availableModels.first(where: { $0.id == selectedModel })?.contextWindow {
+            return model
+        }
+        return ModelContextCatalog.limit(for: selectedModel)
+    }
+
+    private func estimatedContextTokens() -> Int {
+        var total = 0
+        for message in buildMessagesWithMemory() {
+            total += 4 + estimatedTokenCount(for: message.content)
+        }
+        let draft = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !draft.isEmpty {
+            total += 4 + estimatedTokenCount(for: draft)
+        }
+        return total
+    }
+
+    private func estimatedTokenCount(for text: String) -> Int {
+        guard !text.isEmpty else { return 0 }
+
+        var count = 0
+        var asciiRun = 0
+
+        for scalar in text.unicodeScalars {
+            if CharacterSet.whitespacesAndNewlines.contains(scalar) {
+                continue
+            }
+            if scalar.value < 128 {
+                asciiRun += 1
+                if asciiRun == 4 {
+                    count += 1
+                    asciiRun = 0
+                }
+            } else {
+                if asciiRun > 0 {
+                    count += 1
+                    asciiRun = 0
+                }
+                count += 1
+            }
+        }
+
+        if asciiRun > 0 {
+            count += 1
+        }
+
+        return max(count, 1)
     }
 
     func sendMessage() async {

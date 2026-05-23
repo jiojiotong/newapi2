@@ -9,7 +9,7 @@ final class ChatService {
         self.apiKey = apiKey
     }
 
-    func fetchModels() async throws -> [String] {
+    func fetchModels() async throws -> [ModelInfo] {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         let basePath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         components.path = basePath.isEmpty ? "/v1/models" : "/\(basePath)/v1/models"
@@ -18,7 +18,7 @@ final class ChatService {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let (data, _) = try await URLSession.shared.data(for: request)
         let response = try JSONDecoder().decode(ModelsResponse.self, from: data)
-        return response.data.map { $0.id }.sorted()
+        return response.data.sorted { $0.id < $1.id }
     }
 
     func sendMessage(model: String, messages: [ChatMessage], imageBase64: String? = nil) async throws -> String {
@@ -158,9 +158,31 @@ final class ChatService {
 // MARK: - Models
 
 struct ModelsResponse: Decodable {
-    let data: [ModelItem]
-    struct ModelItem: Decodable {
-        let id: String
+    let data: [ModelInfo]
+}
+
+struct ModelInfo: Decodable, Identifiable {
+    let id: String
+    let contextLength: Int?
+    let maxTokens: Int?
+
+    var contextWindow: Int? {
+        contextLength ?? maxTokens
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case contextLength = "context_length"
+        case maxTokens = "max_tokens"
+        case maxContextLength = "max_context_length"
+        case contextWindow = "context_window"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? container.decode(String.self, forKey: .id)) ?? ""
+        contextLength = container.decodeIntIfPresent("context_length", "max_context_length", "context_window")
+        maxTokens = container.decodeIntIfPresent("max_tokens")
     }
 }
 

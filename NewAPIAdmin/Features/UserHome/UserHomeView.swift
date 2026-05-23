@@ -3,6 +3,7 @@ import SwiftUI
 struct UserHomeView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @StateObject private var holder = Holder()
+    @State private var showNotice = true
 
     var body: some View {
         Group {
@@ -34,9 +35,25 @@ private struct UserHomeContentView: View {
 
     var body: some View {
         List {
+            if !viewModel.noticeText.isEmpty && showNotice {
+                Section("公告") {
+                    HStack(alignment: .top) {
+                        Text(viewModel.noticeText)
+                            .font(Font.subheadline)
+                        Spacer()
+                        Button {
+                            showNotice = false
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(Color.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
             Section("我的账户") {
                 LabeledContent("用户名", value: viewModel.username)
-                LabeledContent("分组", value: viewModel.group)
                 LabeledContent("剩余额度", value: viewModel.quotaText)
                 LabeledContent("已用额度", value: viewModel.usedQuotaText)
                 LabeledContent("请求次数", value: viewModel.requestCountText)
@@ -72,18 +89,14 @@ private struct UserHomeContentView: View {
             }
 
             Section("令牌") {
-                LabeledContent("令牌数量", value: viewModel.tokenCountText)
                 NavigationLink("管理我的令牌") {
                     TokensView()
                 }
             }
 
-            Section("兑换") {
-                NavigationLink("兑换额度") {
-                    RedeemView()
-                }
-                NavigationLink("每日签到") {
-                    CheckinView()
+            Section("日志") {
+                NavigationLink("使用日志") {
+                    LogsView()
                 }
             }
         }
@@ -111,7 +124,6 @@ private struct UserHomeContentView: View {
 final class UserHomeViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var username = "-"
-    @Published var group = "default"
     @Published var quotaText = "-"
     @Published var usedQuotaText = "-"
     @Published var requestCountText = "-"
@@ -119,21 +131,27 @@ final class UserHomeViewModel: ObservableObject {
     @Published var rpmText = "-"
     @Published var tpmText = "-"
     @Published var tokenCountText = "-"
+    @Published var noticeText = ""
     @Published var modelPricingList: [UserModelPriceItem] = []
 
     private let client: NewAPIClient
-    private let user: AdminUser
 
     init(client: NewAPIClient, user: AdminUser) {
         self.client = client
-        self.user = user
         self.username = user.username
-        self.group = user.group ?? "default"
     }
 
     func load() async {
         isLoading = true
         defer { isLoading = false }
+
+        // Load notice (public endpoint)
+        do {
+            let notice: String = try await client.get("/api/notice")
+            noticeText = notice
+        } catch {
+            noticeText = ""
+        }
 
         // Load user self info
         do {

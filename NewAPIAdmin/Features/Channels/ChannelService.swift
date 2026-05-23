@@ -42,7 +42,8 @@ final class ChannelService {
 
     /// Fetch available groups from server
     func fetchGroups() async throws -> [String] {
-        try await client.get("/api/group/")
+        let response: GroupNamesResponse = try await client.get("/api/group/")
+        return response.names
     }
 
     /// Fetch global options (for pricing display)

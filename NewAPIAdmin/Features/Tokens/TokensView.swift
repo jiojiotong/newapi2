@@ -130,6 +130,7 @@ private struct TokenDetailView: View {
     @State private var confirmingDelete = false
     @State private var actionResult: String?
     @State private var actionIsError = false
+    @State private var showingEdit = false
 
     var body: some View {
         List {
@@ -175,6 +176,7 @@ private struct TokenDetailView: View {
             }
 
             Section("操作") {
+                Button("编辑令牌") { showingEdit = true }
                 Button(token.status == 1 ? "禁用令牌" : "启用令牌") {
                     Task { await toggleStatus() }
                 }
@@ -189,6 +191,9 @@ private struct TokenDetailView: View {
         }
         .confirmationDialog("确认删除令牌？", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("删除", role: .destructive) { Task { await viewModel.delete(token) } }
+        }
+        .navigationDestination(isPresented: $showingEdit) {
+            TokenEditView(token: token, viewModel: viewModel)
         }
     }
 
@@ -229,6 +234,142 @@ private struct TokenDetailView: View {
 
 // MARK: - Token Create
 
+// MARK: - Token Edit
+
+private struct TokenEditView: View {
+    let token: APIToken
+    @ObservedObject var viewModel: TokensViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+    @State private var unlimitedQuota = false
+    @State private var quotaText = ""
+    @State private var modelLimitsEnabled = false
+    @State private var modelLimits = ""
+    @State private var group = ""
+    @State private var isSaving = false
+    @State private var availableGroups: [String] = []
+    @State private var resultMessage: String?
+    @State private var isError = false
+
+    var body: some View {
+        Form {
+            if let result = resultMessage {
+                Section {
+                    Text(result).foregroundColor(isError ? Color.red : Color.green)
+                }
+            }
+
+            Section("基本信息") {
+                TextField("令牌名称", text: $name)
+                    .adminPlainTextInput()
+                if availableGroups.isEmpty {
+                    Text("加载分组中...")
+                        .foregroundColor(Color.secondary)
+                } else {
+                    Picker("分组", selection: $group) {
+                        Text("请选择分组").tag("")
+                        ForEach(availableGroups, id: \.self) { g in
+                            Text(g).tag(g)
+                        }
+                    }
+                    if group.isEmpty {
+                        Text("请选择一个分组")
+                            .font(Font.caption)
+                            .foregroundColor(Color.red)
+                    }
+                }
+            }
+
+            Section("额度") {
+                Toggle("无限额度", isOn: $unlimitedQuota)
+                if !unlimitedQuota {
+                    HStack {
+                        Text("剩余额度")
+                        Spacer()
+                        TextField("额度", text: $quotaText)
+                            .adminNumberKeyboard()
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 120)
+                            .adminEditableField()
+                    }
+                    Text("500000 = $1.00")
+                        .font(Font.caption)
+                        .foregroundColor(Color.secondary)
+                }
+            }
+
+            Section("模型限制") {
+                Toggle("启用模型限制", isOn: $modelLimitsEnabled)
+                if modelLimitsEnabled {
+                    TextField("模型名称，逗号分隔", text: $modelLimits)
+                        .adminPlainTextInput()
+                }
+            }
+
+            Section {
+                Button("保存修改") {
+                    Task { await save() }
+                }
+                .disabled(isSaving || name.isEmpty || group.isEmpty)
+            }
+        }
+        .navigationTitle("编辑令牌")
+        .task {
+            loadFromToken()
+            availableGroups = await viewModel.fetchGroups(preserving: token.group)
+        }
+    }
+
+    private func loadFromToken() {
+        name = token.name
+        group = token.group ?? ""
+        unlimitedQuota = token.unlimitedQuota ?? false
+        quotaText = token.remainQuota.map { String($0) } ?? "0"
+        modelLimitsEnabled = token.modelLimitsEnabled ?? false
+        modelLimits = token.modelLimits ?? ""
+    }
+
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+        resultMessage = nil
+
+        let trimmedGroup = group.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedGroup.isEmpty else {
+            resultMessage = "请选择分组"
+            isError = true
+            return
+        }
+
+        var values: [String: AnyJSONValue] = [
+            "id": .int(token.id),
+            "name": .string(name),
+            "unlimited_quota": .bool(unlimitedQuota),
+            "model_limits_enabled": .bool(modelLimitsEnabled),
+            "model_limits": .string(modelLimits)
+        ]
+
+        if !unlimitedQuota, let quota = Int(quotaText) {
+            values["remain_quota"] = .int(quota)
+        }
+
+        values["group"] = .string(trimmedGroup)
+
+        await viewModel.update(DynamicObject(values: values))
+        if viewModel.errorMessage == nil {
+            resultMessage = "保存成功"
+            isError = false
+        } else {
+            resultMessage = viewModel.errorMessage
+            isError = true
+            viewModel.errorMessage = nil
+        }
+    }
+}
+
+// MARK: - Token Create
+
 private struct TokenCreateView: View {
     @ObservedObject var viewModel: TokensViewModel
     @Environment(\.dismiss) private var dismiss
@@ -241,6 +382,7 @@ private struct TokenCreateView: View {
     @State private var modelLimits = ""
     @State private var group = ""
     @State private var isSaving = false
+    @State private var availableGroups: [String] = []
 
     var body: some View {
         Form {
@@ -251,8 +393,22 @@ private struct TokenCreateView: View {
             Section("基本信息") {
                 TextField("令牌名称", text: $name)
                     .adminPlainTextInput()
-                TextField("分组（可选）", text: $group)
-                    .adminPlainTextInput()
+                if availableGroups.isEmpty {
+                    Text("加载分组中...")
+                        .foregroundColor(Color.secondary)
+                } else {
+                    Picker("分组", selection: $group) {
+                        Text("请选择分组").tag("")
+                        ForEach(availableGroups, id: \.self) { g in
+                            Text(g).tag(g)
+                        }
+                    }
+                    if group.isEmpty {
+                        Text("请选择一个分组")
+                            .font(Font.caption)
+                            .foregroundColor(Color.red)
+                    }
+                }
             }
 
             Section("额度") {
@@ -289,15 +445,24 @@ private struct TokenCreateView: View {
                 Button("创建令牌") {
                     Task { await create() }
                 }
-                .disabled(isSaving || name.isEmpty)
+                .disabled(isSaving || name.isEmpty || group.isEmpty)
             }
         }
         .navigationTitle("新增令牌")
+        .task {
+            availableGroups = await viewModel.fetchGroups()
+        }
     }
 
     private func create() async {
         isSaving = true
         defer { isSaving = false }
+
+        let trimmedGroup = group.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedGroup.isEmpty else {
+            viewModel.errorMessage = "请选择分组"
+            return
+        }
 
         var values: [String: AnyJSONValue] = [
             "name": .string(name),
@@ -314,15 +479,14 @@ private struct TokenCreateView: View {
             values["model_limits"] = .string(modelLimits)
         }
 
-        if !group.trimmingCharacters(in: .whitespaces).isEmpty {
-            values["group"] = .string(group.trimmingCharacters(in: .whitespaces))
-        }
+        values["group"] = .string(trimmedGroup)
 
         await viewModel.create(DynamicObject(values: values))
         if viewModel.errorMessage == nil {
             dismiss()
         }
     }
+
 }
 
 // MARK: - ViewModel
@@ -396,12 +560,34 @@ final class TokensViewModel: ObservableObject {
         await load()
     }
 
+    func update(_ payload: DynamicObject) async {
+        await perform {
+            try await service.update(payload)
+        }
+        await load()
+    }
+
     func getFullKey(id: Int) async -> String? {
         do {
             return try await service.getFullKey(id: id)
         } catch {
             errorMessage = error.localizedDescription
             return nil
+        }
+    }
+
+    func fetchGroups(preserving currentGroup: String? = nil) async -> [String] {
+        do {
+            var groups = try await service.fetchGroups()
+            if let currentGroup, !currentGroup.isEmpty, !groups.contains(currentGroup) {
+                groups.append(currentGroup)
+            }
+            return groups.sorted()
+        } catch {
+            if let currentGroup, !currentGroup.isEmpty {
+                return [currentGroup]
+            }
+            return []
         }
     }
 

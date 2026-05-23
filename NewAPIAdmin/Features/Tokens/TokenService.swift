@@ -34,6 +34,11 @@ final class TokenService {
         let response: TokenKeyResponse = try await client.post("/api/token/\(id)/key", body: EmptyRequest())
         return response.key
     }
+
+    func fetchGroups() async throws -> [String] {
+        let response: GroupNamesResponse = try await client.get("/api/group/")
+        return response.names
+    }
 }
 
 struct APIToken: Codable, Identifiable, Equatable {
