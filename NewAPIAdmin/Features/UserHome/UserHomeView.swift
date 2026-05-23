@@ -3,7 +3,6 @@ import SwiftUI
 struct UserHomeView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @StateObject private var holder = Holder()
-    @State private var showNotice = true
 
     var body: some View {
         Group {
@@ -32,6 +31,7 @@ struct UserHomeView: View {
 
 private struct UserHomeContentView: View {
     @ObservedObject var viewModel: UserHomeViewModel
+    @State private var showNotice = true
 
     var body: some View {
         List {
